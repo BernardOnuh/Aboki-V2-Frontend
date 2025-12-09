@@ -1,9 +1,3 @@
-#!/bin/bash
-
-# Create directory if not exi
-mkdir -p src/components/layout
-
-cat << 'EOF' > src/components/layout/BottomNav.tsx
 "use client"
 
 import Link from "next/link";
@@ -80,4 +74,3 @@ export default function BottomNav() {
     </div>
   );
 }
-EOF
