@@ -12,12 +12,19 @@ import {
 
 const MOCK_BALANCE = 7517.49;
 
-// We wrap the main logic in a component to handle SearchParams safely
 function AmountInputContent() {
   const searchParams = useSearchParams();
-  // READ DATA: Get dynamic values or fallback to defaults
   const username = searchParams.get("username") || "@unknown";
   const avatar = searchParams.get("avatar") || "?";
+  
+  // CAPTURE THE SOURCE
+  const source = searchParams.get("source"); 
+
+  // DETERMINE BACK LINK
+  let backLink = "/send/contacts"; // Default
+  if (source === "crypto") backLink = "/send/crypto";
+  // Bank has its own component, so we don't need to check for 'bank' here usually, 
+  // but if we reuse this component, we could add it.
 
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -45,16 +52,15 @@ function AmountInputContent() {
   return (
     <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
       
-      {/* Header */}
       <header className="px-6 py-6 relative flex items-center justify-center">
+        {/* DYNAMIC BACK BUTTON */}
         <Link 
-          href={searchParams.get("source") === "crypto" ? "/send/crypto" : "/send/contacts"} 
+          href={backLink} 
           className="absolute left-6 p-3 -ml-3 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors z-10"
         >
           <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
         </Link>
         
-        {/* DYNAMIC RECIPIENT DISPLAY */}
         <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-5 py-2.5 rounded-full border-2 border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="relative">
             <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-sm font-bold text-purple-600">
@@ -78,7 +84,6 @@ function AmountInputContent() {
           USD AMOUNT
         </span>
 
-        {/* Input Wrapper */}
         <div className="relative flex items-center justify-center gap-6 mb-2">
           <div className="flex items-center relative">
              <span className={`text-6xl md:text-8xl font-bold tracking-tighter transition-colors ${amount ? (isOverBalance ? 'text-red-500' : 'text-slate-900 dark:text-white') : 'text-slate-300 dark:text-slate-700'}`}>
@@ -156,9 +161,8 @@ function AmountInputContent() {
       </div>
 
       <div className="p-6">
-        {/* Pass data to next screen too! */}
         <Link 
-          href={!amount || isOverBalance ? "#" : `/send/review?username=${username}&amount=${amount}&note=${note}`}
+          href={!amount || isOverBalance ? "#" : `/send/review?username=${username}&amount=${amount}&note=${note}&source=${source}`}
         >
           <button 
             disabled={!amount || isOverBalance}
@@ -173,10 +177,9 @@ function AmountInputContent() {
   );
 }
 
-// Wrap in Suspense to prevent Next.js build errors with useSearchParams
 export default function AmountInput() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div>Loading...</div>}>
       <AmountInputContent />
     </Suspense>
   );

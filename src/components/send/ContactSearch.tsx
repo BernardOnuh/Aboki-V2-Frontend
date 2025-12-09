@@ -62,7 +62,7 @@ export default function ContactSearch() {
                 // UPDATE: Passing query params to the next screen
                 <Link 
                   key={contact.id}
-                  href={`/send/amount?username=${contact.username}&avatar=${contact.avatar}`}
+                  href={`/send/amount?source=contacts&username=${contact.username}&avatar=${contact.avatar}`}
                   className="w-full flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border-2 border-transparent hover:border-[#D364DB] dark:hover:border-[#D364DB] rounded-2xl transition-all group active:scale-[0.99]"
                 >
                   <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-slate-200 dark:border-slate-700 font-bold text-slate-600 dark:text-slate-300 text-lg">

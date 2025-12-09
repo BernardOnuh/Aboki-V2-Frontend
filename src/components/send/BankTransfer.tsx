@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react";
@@ -11,13 +10,12 @@ export default function BankTransfer() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Simulate API Name Lookup
   const handleVerify = (val: string) => {
     setAccount(val);
     if (val.length === 10 && bank) {
       setLoading(true);
       setTimeout(() => {
-        setName("JADONAMITE UGOCHUKWU"); // Mock Response
+        setName("JADONAMITE UGOCHUKWU"); 
         setLoading(false);
       }, 800);
     } else {
@@ -61,7 +59,7 @@ export default function BankTransfer() {
            </div>
         </div>
 
-        {/* Account Number Input */}
+        {/* Account Number */}
         <div>
            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block pl-1">Account Number</label>
            <input 
@@ -98,7 +96,8 @@ export default function BankTransfer() {
 
       {/* Continue Button */}
       <div className="p-6">
-        <Link href={name ? `/send/amount?username=${name}&avatar=BK` : "#"}>
+        {/* FIXED LINK: Points to /amount-ngn and passes source=bank */}
+        <Link href={name ? `/send/amount-ngn?username=${name}&avatar=BK&source=bank` : "#"}>
           <button 
             disabled={!name}
             className="w-full py-4 rounded-2xl bg-[#D364DB] text-white font-bold text-lg shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.8)] hover:-translate-y-1 transition-all disabled:opacity-50 disabled:transform-none disabled:shadow-none"
@@ -110,4 +109,3 @@ export default function BankTransfer() {
     </div>
   );
 }
-

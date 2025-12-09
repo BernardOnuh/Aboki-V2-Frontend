@@ -71,7 +71,7 @@ export default function ExternalWallet() {
 
       {/* Continue Button */}
       <div className="p-6">
-        <Link href={isValidAddress ? `/send/amount?username=${address.slice(0,6)}...${address.slice(-4)}&avatar=0x` : "#"}>
+        <Link href={isValidAddress ? `/send/amount?source=crypto&username=${address.slice(0,6)}...${address.slice(-4)}&avatar=0x` : "#"}>
           <button 
             disabled={!isValidAddress}
             className="w-full py-4 rounded-2xl bg-[#D364DB] text-white font-bold text-lg shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.8)] hover:-translate-y-1 hover:shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] transition-all disabled:opacity-50 disabled:transform-none disabled:shadow-none"
