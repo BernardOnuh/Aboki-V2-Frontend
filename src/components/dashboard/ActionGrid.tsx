@@ -11,23 +11,26 @@ export default function ActionGrid() {
     { 
       label: "Send", 
       icon: PaperAirplaneIcon, 
-      // Update: Aboki Purple #D364DB + Dark Mode White Shadow
+      href: "/send",
       style: "bg-[#D364DB] text-white border-2 border-slate-900 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.9)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.9)]"
     },
     { 
       label: "Receive", 
       icon: ArrowDownLeftIcon, 
-      // Update: Dark Mode White Shadow for secondary buttons too
+      href: "/receive", 
+      
       style: "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-2 border-slate-900 dark:border-slate-700 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.9)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.9)]"
     },
     { 
       label: "Add Cash", 
       icon: PlusIcon, 
+      href: "/add", // Placeholder for future
       style: "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-2 border-slate-900 dark:border-slate-700 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.9)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.9)]"
     },
     { 
       label: "Withdraw", 
       icon: BuildingLibraryIcon, 
+      href: "/withdraw", // Placeholder for future
       style: "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border-2 border-slate-900 dark:border-slate-700 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.9)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(15,23,42,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.9)]"
     },
   ];
@@ -50,9 +53,10 @@ export default function ActionGrid() {
           ${action.style}
         `;
 
-        if (action.label === "Send") {
+        // If the action has an href, wrap it in a Link
+        if (action.href) {
           return (
-            <Link key={action.label} href="/send" className="w-full">
+            <Link key={action.label} href={action.href} className="w-full">
               <button className={containerClasses}>
                 {ButtonContent}
               </button>
@@ -60,6 +64,7 @@ export default function ActionGrid() {
           );
         }
 
+        // Fallback for buttons without links yet
         return (
           <button key={action.label} className={containerClasses}>
             {ButtonContent}

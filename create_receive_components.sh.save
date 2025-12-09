@@ -1,0 +1,258 @@
+#!/bin/bash
+
+# Create directory if not exists
+mkdir -p src/components/receive
+# 1. THE MENU (Main Hub)
+cat << 'EOF' > src/components/receive/ReceiveMenu.tsx
+"use client"
+
+import Link from "next/link";
+import { 
+  ChevronLeftIcon, 
+  UserCircleIcon, 
+  LinkIcon, 
+  QrCodeIcon 
+} from "@heroicons/react/24/outline";
+
+export default function ReceiveMenu() {
+  return (
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+      
+      <header className="px-6 py-6 flex items-center relative">
+        <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+          <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
+        </Link>
+        <h1 className="absolute left-1/2 -translate-x-1/2 font-bold text-xl text-slate-900 dark:text-white">
+          Receive Money
+        </h1>
+      </header>
+
+      <div className="flex-1 px-6 mt-4 flex flex-col gap-4">
+        <p className="text-slate-500 font-medium mb-2">Choose how you want to receive:</p>================================================        {/* Option 1: Aboki Username */}
+        <ReceiveOption 
+          href="/receive/username"
+          icon={UserCircleIcon}
+          title="From a Contact"
+          subtitle="Share your @username"
+          iconColor="bg-purple-100 text-purple-600"
+        />
+
+        {/* Option 2: Request Link */}
+        <ReceiveOption 
+          href="/receive/request"
+          icon={LinkIcon}
+          title="Request via Link"
+          subtitle="Ask for a specific amount"
+          iconColor="bg-pink-100 text-pink-600"
+        />
+
+        {/* Option 3: Wallet Address */}
+        <ReceiveOption 
+          href="/receive/address"
+          icon={QrCodeIcon}
+          title="From Exchange or Wallet"
+          subtitle="Deposit via Base Network"
+          iconColor="bg-blue-100 text-blue-600"
+        />
+      </div>
+    </div>
+  );
+}
+
+function ReceiveOption({ href, icon: Icon, title, subtitle, iconColor }: any) {
+  return (
+    <Link href={href}>
+      <div className="flex items-center gap-4 p-5 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl hover:border-[#D364DB] transition-all cursor-pointer active:scale-[0.99] shadow-sm">
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${iconColor}`}>
+          <Icon className="w-6 h-6" />
+        </div>
+        <div className="flex flex-col">
+          <span className="font-bold text-lg text-slate-900 dark:text-white">{title}</span>
+          <span className="text-sm text-slate-500 font-medium">{subtitle}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+EOF
+
+# 2. OPTION 1: USERNAME DISPLAY
+cat << 'EOF' > src/components/receive/ReceiveUsername.tsx
+"use client"
+
+import { useState } from "react";
+import Link from "next/link";
+import { ChevronLeftIcon, DocumentDuplicateIcon, ShareIcon } from "@heroicons/react/24/outline";
+
+export default function ReceiveUsername() {
+  const [copied, setCopied] = useState(false);
+  const username = "@jadonamite";
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(username);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+      <header className="px-6 py-6 flex items-center gap-4">
+        <Link href="/receive" className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+          <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
+        </Link>
+        <h1 className="font-bold text-xl text-slate-900 dark:text-white">Aboki Username</h1>
+      </header>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-6 -mt-20">
+        <div className="w-24 h-24 bg-purple-200 rounded-full flex items-center justify-center mb-6 border-4 border-white dark:border-slate-800 shadow-xl">
+          <span className="text-3xl font-bold text-purple-700">J</span>
+        </div>
+        
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">YOUR USERNAME</h2>
+        <div className="text-4xl font-bold text-slate-900 dark:text-white tracking-tight mb-8">
+          {username}
+        </div>
+
+        <div className="flex gap-4 w-full max-w-xs">
+          <button 
+            onClick={handleCopy}
+            className="flex-1 py-3 px-4 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 hover:border-[#D364DB] active:scale-95 transition-all"
+          >
+            {copied ? <span className="text-green-600 font-bold">Copied!</span> : (
+               <>
+                 <DocumentDuplicateIcon className="w-5 h-5" />
+                 <span className="font-bold">Copy</span>
+               </>
+            )}
+          </button>
+          <button className="flex-1 py-3 px-4 rounded-xl bg-[#D364DB] text-white font-bold flex items-center justify-center gap-2 shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:-translate-y-0.5 transition-all">
+            <ShareIcon className="w-5 h-5" />
+            Share
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+EOF
+
+# 3. OPTION 2: REQUEST LINK (Input -> Generate)
+cat << 'EOF' > src/components/receive/RequestLink.tsx
+"use client"
+
+import { useState } from "react";
+import Link from "next/link";
+import { ChevronLeftIcon, LinkIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
+
+export default function RequestLink() {
+  const [amount, setAmount] = useState("");
+  const [link, setLink] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const formatAmount = (val: string) => val.replace(/[^\d.]/g, "");
+
+  const generateLink = () => {
+    setLink(`https://aboki.com/pay/me?amt=${amount}`);
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+  };
+
+  if (link) {
+    // Success View
+    return (
+      <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
+         <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mb-6">
+            <LinkIcon className="w-10 h-10 text-pink-500" />
+         </div>
+         <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Request Ready!</h1>
+         <p className="text-slate-500 mb-8">Share this link to get paid ${amount}.</p>
+
+         <div className="w-full max-w-sm bg-white dark:bg-slate-900 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 mb-8 flex items-center gap-3">
+            <p className="flex-1 text-slate-900 dark:text-white font-mono text-sm truncate">{link}</p>
+            <button onClick={copyLink}>
+              {copied ? <span className="text-green-500 font-bold text-xs">Copied</span> : <ClipboardDocumentIcon className="w-5 h-5 text-slate-400" />}
+            </button>
+         </div>
+
+         <button onClick={() => setLink("")} className="text-slate-500 font-bold hover:text-slate-900">Create another</button>
+      </div>
+    );
+  }
+
+  // Input View
+  return (
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+      <header className="px-6 py-6 flex items-center gap-4">
+        <Link href="/receive" className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+          <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
+        </Link>
+        <h1 className="font-bold text-xl text-slate-900 dark:text-white">Request Money</h1>
+      </header>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-6 -mt-10">
+        <span className="text-slate-400 font-bold tracking-widest text-sm mb-6">AMOUNT TO REQUEST</span>
+        <div className="flex items-center justify-center relative mb-8">
+           <span className={`text-6xl font-bold tracking-tighter ${amount ? 'text-slate-900 dark:text-white' : 'text-slate-300'}`}>$</span>
+           <input 
+              type="number" placeholder="0" autoFocus
+              value={amount} onChange={(e) => setAmount(formatAmount(e.target.value))}
+              className="w-full max-w-[300px] bg-transparent text-6xl font-bold tracking-tighter text-slate-900 dark:text-white placeholder:text-slate-300 text-center focus:outline-none p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none"
+           />
+        </div>
+        <button 
+          disabled={!amount}
+          onClick={generateLink}
+          className="w-full max-w-sm py-4 rounded-2xl bg-[#D364DB] text-white font-bold text-lg shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] hover:-translate-y-1 transition-all disabled:opacity-50 disabled:transform-none disabled:shadow-none"
+        >
+          Create Request Link
+        </button>
+      </div>
+    </div>
+  );
+}
+EOF
+
+# 4. OPTION 3: ADDRESS (Moved from old ReceiveScreen)
+cat << 'EOF' > src/components/receive/ReceiveAddress.tsx
+"use client"
+
+import { useState } from "react";
+import Link from "next/link";
+import { ChevronLeftIcon, DocumentDuplicateIcon, ShareIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
+import { QrCodeIcon } from "@heroicons/react/24/solid";
+
+export default function ReceiveAddress() {
+  const [copied, setCopied] = useState(false);
+  const walletAddress = "0x71C...9A23"; 
+  const fullAddress = "0x71C95911E9a5D330f4D621842EC243EE13439A23";
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(fullAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+      <header className="px-6 py-6 flex items-center gap-4 relative">
+        <Link href="/receive" className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+          <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
+        </Link>
+        <h1 className="font-bold text-xl text-slate-900 dark:text-white">Wallet Address</h1>
+      </header>
+
+      <div className="flex-1 flex flex-col items-center justify-start pt-4 px-6 gap-8">
+        <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-4 py-2 rounded-full text-xs font-bold border border-blue-100 dark:border-blue-800/50">
+          <InformationCircleIcon className="w-4 h-4" />
+          <span>Only send USDC on Base Network</span>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] shadow-xl shadow-purple-100/50 dark:shadow-none border-2 border-slate-100 dark:border-slate-800 flex flex-col items-center gap-6 w-full max-w-xs">
+          <div className="w-64 h-64 bg-slate-900 dark:bg-white rounded-3xl flex items-center justify-center relative overflow-hidden group">
+            <QrCodeIcon className="w-64 h-64 text-white dark:text-slate-900 opacity-90" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center shadow-lg">
+                <div className="w-8 h-8 rounded-full bg-[#D364DB
