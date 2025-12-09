@@ -10,9 +10,12 @@ import {
 } from "@heroicons/react/24/outline";
 
 const RECENT_CONTACTS = [
-  { id: 1, name: "Emeka O.", username: "@emeka", avatar: "E" },
-  { id: 2, name: "Chioma A.", username: "@chioma", avatar: "C" },
+  { id: 1, name: "Temitope O.", username: "@Temmy03", avatar: "T" },
+  { id: 2, name: "Bernard O.", username: "@bernard", avatar: "B" },
   { id: 3, name: "Tunde B.", username: "@tunde", avatar: "T" },
+  { id: 3, name: "Erudite A.", username: "@aboki", avatar: "E" },
+  { id: 4, name: "Aisha K.", username: "@aisha", avatar: "A" },
+  { id: 5, name: "David L.", username: "@david", avatar: "D" },
 ];
 
 export default function ContactSearch() {
@@ -22,7 +25,6 @@ export default function ContactSearch() {
     : RECENT_CONTACTS;
 
   return (
-    // Clean background, no shadow
     <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
       
       <header className="px-6 py-6 flex items-center gap-4">
@@ -35,7 +37,6 @@ export default function ContactSearch() {
       </header>
 
       <div className="px-6 flex flex-col gap-6">
-        
         <div className="relative group">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <MagnifyingGlassIcon className="h-6 w-6 text-slate-400 group-focus-within:text-[#D364DB] transition-colors" />
@@ -58,8 +59,10 @@ export default function ContactSearch() {
           <div className="space-y-2">
             {filteredContacts.length > 0 ? (
               filteredContacts.map((contact) => (
-                <Link href="/send/amount" 
+                // UPDATE: Passing query params to the next screen
+                <Link 
                   key={contact.id}
+                  href={`/send/amount?username=${contact.username}&avatar=${contact.avatar}`}
                   className="w-full flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border-2 border-transparent hover:border-[#D364DB] dark:hover:border-[#D364DB] rounded-2xl transition-all group active:scale-[0.99]"
                 >
                   <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-slate-200 dark:border-slate-700 font-bold text-slate-600 dark:text-slate-300 text-lg">
