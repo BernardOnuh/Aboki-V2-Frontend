@@ -12,7 +12,7 @@ export default function ActionGrid() {
       label: "Send", 
       icon: PaperAirplaneIcon, 
       // Primary styling: Purple background, White text
-      style: "bg-[#9333EA] border-[#9333EA] text-white hover:bg-purple-700 dark:hover:bg-purple-600"
+      style: "bg-[#9333EA]/50 border-[#9333EA]/30 text-white hover:bg-purple-700 dark:hover:bg-purple-600"
     },
     { 
       label: "Receive", 
@@ -38,7 +38,7 @@ export default function ActionGrid() {
         <button 
           key={action.label}
           className={`
-            flex items-center gap-3 p-4 rounded-2xl border shadow-sm transition-all active:scale-[0.98]
+            flex items-center gap-3 p-4 rounded-full border shadow-sm transition-all active:scale-[0.98]
             ${action.style}
           `}
         >
