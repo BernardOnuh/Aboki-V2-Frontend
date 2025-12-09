@@ -16,7 +16,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50 dark:bg-black flex justify-center">
       
       {/* App Container: Constrained width, centered, white background */}
-      <main className="w-full max-w-[1080px] min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 transition-colors duration-300  overflow-hidden">
+      <main className="w-full max-w-[1080px] min-h-screen bg-[slate]-50 dark:bg-slate-950 pb-20 transition-colors duration-300  overflow-hidden">
         
         {/* Header */}
         <header className="flex items-center justify-between px-6 py-5 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md z-20">
