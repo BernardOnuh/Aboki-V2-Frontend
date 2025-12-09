@@ -48,7 +48,7 @@ function AmountInputContent() {
       {/* Header */}
       <header className="px-6 py-6 relative flex items-center justify-center">
         <Link 
-          href="/send/contacts" 
+          href={searchParams.get("source") === "crypto" ? "/send/crypto" : "/send/contacts"} 
           className="absolute left-6 p-3 -ml-3 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors z-10"
         >
           <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
