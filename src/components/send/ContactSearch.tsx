@@ -58,7 +58,7 @@ export default function ContactSearch() {
           <div className="space-y-2">
             {filteredContacts.length > 0 ? (
               filteredContacts.map((contact) => (
-                <button 
+                <Link href="/send/amount" 
                   key={contact.id}
                   className="w-full flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border-2 border-transparent hover:border-[#D364DB] dark:hover:border-[#D364DB] rounded-2xl transition-all group active:scale-[0.99]"
                 >
@@ -74,7 +74,7 @@ export default function ContactSearch() {
                       {contact.username}
                     </span>
                   </div>
-                </button>
+                </Link>
               ))
             ) : (
               <div className="text-center py-10 opacity-60">
