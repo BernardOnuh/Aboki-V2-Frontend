@@ -25,7 +25,7 @@ export default function ContactSearch() {
     : RECENT_CONTACTS;
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 overflow-hidden flex flex-col">
       
       <header className="px-6 py-6 flex items-center gap-4">
         <Link href="/send" className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
@@ -44,7 +44,7 @@ export default function ContactSearch() {
           <input
             type="text"
             autoFocus
-            className="block w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl text-lg font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#D364DB] dark:focus:border-[#D364DB] focus:ring-0 transition-all shadow-sm"
+            className="block w-full pl-12 pr-4 py-4 bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] rounded-2xl text-lg font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#D364DB] dark:focus:border-[#D364DB] focus:ring-0 transition-all shadow-sm"
             placeholder="Search @username or address"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -63,9 +63,9 @@ export default function ContactSearch() {
                 <Link 
                   key={contact.id}
                   href={`/send/amount?source=contacts&username=${contact.username}&avatar=${contact.avatar}`}
-                  className="w-full flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border-2 border-transparent hover:border-[#D364DB] dark:hover:border-[#D364DB] rounded-2xl transition-all group active:scale-[0.99]"
+                  className="w-full flex items-center gap-4 p-4 bg-white dark:bg-[#3D3D3D] border-2 border-transparent hover:border-[#D364DB] dark:hover:border-[#D364DB] rounded-2xl transition-all group active:scale-[0.99]"
                 >
-                  <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-slate-200 dark:border-slate-700 font-bold text-slate-600 dark:text-slate-300 text-lg">
+                  <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center border-2 border-slate-200 dark:border-[#A3A3A3] font-bold text-slate-600 dark:text-slate-300 text-lg">
                     {contact.avatar}
                   </div>
                   

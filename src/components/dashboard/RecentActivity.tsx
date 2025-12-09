@@ -34,20 +34,20 @@ export default function RecentActivity() {
             key={tx.id} 
             className="
               flex items-center justify-between p-4 
-              bg-white dark:bg-slate-900 
-              rounded-2xl border border-slate-100 dark:border-slate-800 
+              bg-white dark:bg-[#3D3D3D] 
+              rounded-2xl border border-slate-100 dark:border-[#A3A3A3] 
               shadow-sm hover:border-slate-200 dark:hover:border-slate-700 transition-colors
             "
           >
             <div className="flex items-center gap-4">
-              <Avatar className="h-10 w-10 border border-slate-100 dark:border-slate-700">
+              <Avatar className="h-10 w-10 border border-slate-100 dark:border-[#A3A3A3]">
                 <AvatarFallback className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs">
                   {tx.initials}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <p className="font-bold text-sm text-slate-900 dark:text-white">{tx.name}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{tx.type} • {tx.date}</p>
+                <p className="text-xs text-slate-500 dark:text-gray-300">{tx.type} • {tx.date}</p>
               </div>
             </div>
             <span className={`font-bold text-sm ${tx.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-slate-900 dark:text-white'}`}>

@@ -50,7 +50,7 @@ function AmountInputContent() {
   };
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 overflow-hidden flex flex-col">
       
       <header className="px-6 py-6 relative flex items-center justify-center">
         {/* DYNAMIC BACK BUTTON */}
@@ -61,7 +61,7 @@ function AmountInputContent() {
           <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
         </Link>
         
-        <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-5 py-2.5 rounded-full border-2 border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-3 bg-white dark:bg-[#3D3D3D] px-5 py-2.5 rounded-full border-2 border-slate-100 dark:border-[#A3A3A3] shadow-sm">
           <div className="relative">
             <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-sm font-bold text-purple-600">
               {avatar}
@@ -102,13 +102,13 @@ function AmountInputContent() {
           <div className="flex flex-col gap-3">
             <button 
               onClick={() => adjustAmount(1)}
-              className="w-12 h-12 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center hover:border-[#D364DB] active:scale-95 transition-all shadow-sm group"
+              className="w-12 h-12 rounded-full bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] flex items-center justify-center hover:border-[#D364DB] active:scale-95 transition-all shadow-sm group"
             >
               <ChevronUpIcon className="w-6 h-6 text-slate-400 group-hover:text-[#D364DB]" />
             </button>
             <button 
               onClick={() => adjustAmount(-1)}
-              className="w-12 h-12 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center hover:border-[#D364DB] active:scale-95 transition-all shadow-sm group"
+              className="w-12 h-12 rounded-full bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] flex items-center justify-center hover:border-[#D364DB] active:scale-95 transition-all shadow-sm group"
             >
               <ChevronDownIcon className="w-6 h-6 text-slate-400 group-hover:text-[#D364DB]" />
             </button>
@@ -132,7 +132,7 @@ function AmountInputContent() {
             <button 
               key={val}
               onClick={() => handleQuickAdd(val)}
-              className="px-5 py-2.5 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-300 hover:border-[#D364DB] hover:text-[#D364DB] transition-all shadow-sm"
+              className="px-5 py-2.5 rounded-full bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] font-bold text-slate-600 dark:text-slate-300 hover:border-[#D364DB] hover:text-[#D364DB] transition-all shadow-sm"
             >
               ${val}
             </button>
@@ -154,7 +154,7 @@ function AmountInputContent() {
             placeholder="Add a note (optional)" 
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-slate-900/50 border-2 border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:border-[#D364DB] dark:focus:border-[#D364DB] rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-900 transition-all text-center"
+            className="w-full pl-10 pr-4 py-3 bg-white/50 dark:bg-[#3D3D3D]/50 border-2 border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:border-[#D364DB] dark:focus:border-[#D364DB] rounded-xl text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-900 transition-all text-center"
           />
         </div>
 

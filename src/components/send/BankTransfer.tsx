@@ -24,7 +24,7 @@ export default function BankTransfer() {
   };
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 overflow-hidden flex flex-col">
       
       <header className="px-6 py-6 flex items-center gap-4">
         <Link href="/send" className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
@@ -42,7 +42,7 @@ export default function BankTransfer() {
            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block pl-1">Select Bank</label>
            <div className="relative">
              <select 
-               className="w-full p-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl text-slate-900 dark:text-white font-bold focus:border-[#D364DB] focus:outline-none appearance-none cursor-pointer transition-colors"
+               className="w-full p-4 bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] rounded-2xl text-slate-900 dark:text-white font-bold focus:border-[#D364DB] focus:outline-none appearance-none cursor-pointer transition-colors"
                value={bank}
                onChange={(e) => setBank(e.target.value)}
              >
@@ -68,7 +68,7 @@ export default function BankTransfer() {
              placeholder="0123456789"
              value={account}
              onChange={(e) => handleVerify(e.target.value)}
-             className="w-full p-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl text-2xl font-mono text-slate-900 dark:text-white placeholder:text-slate-300 focus:border-[#D364DB] focus:outline-none transition-colors"
+             className="w-full p-4 bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] rounded-2xl text-2xl font-mono text-slate-900 dark:text-white placeholder:text-slate-300 focus:border-[#D364DB] focus:outline-none transition-colors"
            />
         </div>
 
@@ -86,7 +86,7 @@ export default function BankTransfer() {
               <CheckBadgeIcon className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Verified Name</p>
+              <p className="text-[10px] font-bold text-slate-500 dark:text-gray-300 uppercase tracking-wider">Verified Name</p>
               <p className="font-bold text-slate-900 dark:text-white text-lg">{name}</p>
             </div>
           </div>

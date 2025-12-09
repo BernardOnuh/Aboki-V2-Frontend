@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={cn(
-        "min-h-screen bg-slate-50 dark:bg-slate-950 font-sans antialiased transition-colors duration-300", 
+        "min-h-screen bg-slate-50 dark:bg-[#252525] font-sans antialiased transition-colors duration-300", 
         bricolage.variable
       )}>
         <ThemeProvider

@@ -21,7 +21,7 @@ export default function ExternalWallet() {
   };
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 overflow-hidden flex flex-col">
       
       {/* Header */}
       <header className="px-6 py-6 flex items-center gap-4">
@@ -43,7 +43,7 @@ export default function ExternalWallet() {
             placeholder="0x..." 
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="w-full h-40 p-5 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-3xl text-lg font-mono text-slate-900 dark:text-white placeholder:text-slate-300 focus:border-[#D364DB] focus:outline-none resize-none shadow-sm transition-all"
+            className="w-full h-40 p-5 bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] rounded-3xl text-lg font-mono text-slate-900 dark:text-white placeholder:text-slate-300 focus:border-[#D364DB] focus:outline-none resize-none shadow-sm transition-all"
           />
           
           {/* Action Tools */}

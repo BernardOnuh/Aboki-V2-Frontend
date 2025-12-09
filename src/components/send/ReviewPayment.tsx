@@ -71,7 +71,7 @@ function ReviewContent() {
     // SCENARIO A: Magic Link Success
     if (username === "Magic Link") {
       return (
-        <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+        <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
            <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mb-6 animate-bounce">
               <LinkIcon className="w-10 h-10 text-pink-500" />
            </div>
@@ -79,7 +79,7 @@ function ReviewContent() {
            <p className="text-slate-500 mb-8">Anyone with this link can claim ${amount}.</p>
 
            {/* The Link Card */}
-           <div className="w-full max-w-sm bg-white dark:bg-slate-900 p-4 rounded-2xl border-2 border-slate-200 dark:border-slate-800 mb-8 flex items-center gap-3">
+           <div className="w-full max-w-sm bg-white dark:bg-[#3D3D3D] p-4 rounded-2xl border-2 border-slate-200 dark:border-[#A3A3A3] mb-8 flex items-center gap-3">
               <div className="flex-1 overflow-hidden">
                 <p className="text-slate-900 dark:text-white font-mono text-sm truncate">{generatedLink}</p>
               </div>
@@ -118,7 +118,7 @@ function ReviewContent() {
 
   // --- REVIEW SCREEN ---
   return (
-    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 overflow-hidden flex flex-col">
       
       <header className="px-6 py-6 flex items-center justify-center relative">
         <button 
@@ -132,8 +132,8 @@ function ReviewContent() {
 
       <div className="flex-1 px-6 mt-4">
         
-        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-          <div className="text-center py-6 border-b border-dashed border-slate-200 dark:border-slate-700">
+        <div className="bg-white dark:bg-[#3D3D3D] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-[#A3A3A3]">
+          <div className="text-center py-6 border-b border-dashed border-slate-200 dark:border-[#A3A3A3]">
             <span className="text-sm font-bold text-slate-400 tracking-wider">YOU SEND</span>
             
             {/* Display NGN if Bank, else USD */}
@@ -164,7 +164,7 @@ function ReviewContent() {
                </div>
             )}
 
-            <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="pt-4 mt-2 border-t border-slate-100 dark:border-[#A3A3A3] flex items-center justify-between">
               <span className="font-bold text-slate-900 dark:text-white">Total Deduction</span>
               <span className="font-bold text-slate-900 dark:text-white">${amount} USD</span>
             </div>

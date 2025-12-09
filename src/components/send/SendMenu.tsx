@@ -11,7 +11,7 @@ import {
 export default function SendMenu() {
   return (
     // Clean background, no shadow
-    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 overflow-hidden flex flex-col">
         
       <header className="px-6 py-6 flex items-center relative">
         <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
@@ -25,7 +25,7 @@ export default function SendMenu() {
       <div className="flex-1 px-6 mt-4 flex flex-col gap-8">
         
         {/* Send via Link Container */}
-        <div className="border-2 border-slate-900 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-3xl p-6 text-center">
+        <div className="border-2 border-slate-900 dark:border-[#A3A3A3] bg-white dark:bg-[#3D3D3D] rounded-3xl p-6 text-center">
           <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <LinkIcon className="w-6 h-6 text-[#D364DB]" />
           </div>
@@ -44,9 +44,9 @@ export default function SendMenu() {
         </div>
 
         <div className="relative flex items-center py-2">
-          <div className="flex-grow border-t border-slate-300 dark:border-slate-700"></div>
+          <div className="flex-grow border-t border-slate-300 dark:border-[#A3A3A3]"></div>
           <span className="flex-shrink-0 mx-4 text-slate-400 text-sm font-medium">or</span>
-          <div className="flex-grow border-t border-slate-300 dark:border-slate-700"></div>
+          <div className="flex-grow border-t border-slate-300 dark:border-[#A3A3A3]"></div>
         </div>
 
         <div className="space-y-3">
@@ -94,7 +94,7 @@ function SendOption({
 }) {
   return (
     <Link href={href}>
-      <div className="group flex items-center justify-between p-4 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl hover:border-[#D364DB] dark:hover:border-[#D364DB] transition-all cursor-pointer active:scale-[0.99]">
+      <div className="group flex items-center justify-between p-4 bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] rounded-2xl hover:border-[#D364DB] dark:hover:border-[#D364DB] transition-all cursor-pointer active:scale-[0.99]">
         <div className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-full flex items-center justify-center ${iconColor}`}>
             <Icon className="w-6 h-6" />

@@ -15,7 +15,7 @@ export default function ReceiveUsername() {
   };
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 overflow-hidden flex flex-col">
       
       {/* Fixed Header: Removed negative margins, cleaner z-index */}
       <header className="px-6 py-6 flex items-center gap-4 relative z-10">
@@ -29,7 +29,7 @@ export default function ReceiveUsername() {
       </header>
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 -mt-20">
-        <div className="w-24 h-24 bg-purple-200 rounded-full flex items-center justify-center mb-6 border-4 border-white dark:border-slate-800 shadow-xl">
+        <div className="w-24 h-24 bg-purple-200 rounded-full flex items-center justify-center mb-6 border-4 border-white dark:border-[#A3A3A3] shadow-xl">
           <span className="text-3xl font-bold text-purple-700">J</span>
         </div>
         
@@ -41,7 +41,7 @@ export default function ReceiveUsername() {
         <div className="flex gap-4 w-full max-w-xs">
           <button 
             onClick={handleCopy}
-            className="flex-1 py-3 px-4 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 hover:border-[#D364DB] active:scale-95 transition-all shadow-sm"
+            className="flex-1 py-3 px-4 rounded-xl bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] flex items-center justify-center gap-2 hover:border-[#D364DB] active:scale-95 transition-all shadow-sm"
           >
             {copied ? <span className="text-green-600 font-bold">Copied!</span> : (
                <>

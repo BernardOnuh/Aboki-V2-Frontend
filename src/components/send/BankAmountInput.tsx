@@ -29,7 +29,7 @@ function BankAmountContent() {
   };
 
   return (
-    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-slate-950 transition-colors duration-300 overflow-hidden flex flex-col">
+    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 overflow-hidden flex flex-col">
       
       <header className="px-6 py-6 relative flex items-center justify-center">
         {/* FIXED BACK LINK: Always goes to Bank selector */}
@@ -40,7 +40,7 @@ function BankAmountContent() {
           <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
         </Link>
         
-        <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-5 py-2.5 rounded-full border-2 border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-3 bg-white dark:bg-[#3D3D3D] px-5 py-2.5 rounded-full border-2 border-slate-100 dark:border-[#A3A3A3] shadow-sm">
           <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-600">
             {avatar}
           </div>
@@ -95,7 +95,7 @@ function BankAmountContent() {
             <button 
               key={val}
               onClick={() => handleInput(val)}
-              className="px-5 py-2.5 rounded-full bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-300 hover:border-[#D364DB] hover:text-[#D364DB] transition-all shadow-sm"
+              className="px-5 py-2.5 rounded-full bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] font-bold text-slate-600 dark:text-slate-300 hover:border-[#D364DB] hover:text-[#D364DB] transition-all shadow-sm"
             >
               ₦{(parseInt(val)/1000)}k
             </button>
