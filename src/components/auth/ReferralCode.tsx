@@ -17,10 +17,7 @@ export default function ReferralCode() {
   };
 
   return (
-    <AuthLayout 
-      title="STILL IN BETA" 
-      subtitle="Enter your invite code to continue or join the waitlist."
-    >
+    <AuthLayout>
       <div className="space-y-8">
         
         {/* Back Button */}
@@ -30,10 +27,14 @@ export default function ReferralCode() {
           </Link>
         </div>
 
+        {/* Text Moved Here */}
         <div className="space-y-2">
            <h2 className="text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-             INVITE CODE
+             STILL IN BETA
            </h2>
+           <p className="text-slate-500 dark:text-gray-400 font-medium">
+             Enter your invite code to continue or join the waitlist.
+           </p>
         </div>
 
         {/* Input Group */}

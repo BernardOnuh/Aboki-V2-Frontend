@@ -16,10 +16,7 @@ export default function PickUsername() {
   };
 
   return (
-    <AuthLayout 
-      title="PICK A USERNAME" 
-      subtitle="It'll be your ID to send and receive money."
-    >
+    <AuthLayout>
       <div className="space-y-8">
         
         {/* Back Button */}
@@ -29,10 +26,14 @@ export default function PickUsername() {
           </Link>
         </div>
 
+        {/* Text Moved Here */}
         <div className="space-y-2">
            <h2 className="text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-wide">
-             YOUR HANDLE
+             PICK A USERNAME
            </h2>
+           <p className="text-slate-500 dark:text-gray-400 font-medium">
+             It'll be your ID to send and receive money.
+           </p>
         </div>
 
         {/* Input Group */}
