@@ -45,7 +45,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Content Body (Added padding-top for fixed header) */}
+        {/* Content Body */}
         <div className="px-6 mt-6 pt-20 flex flex-col gap-6">
           <div className="space-y-4">
             <BalanceCard />
@@ -59,3 +59,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

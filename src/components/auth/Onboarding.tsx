@@ -1,10 +1,3 @@
-#!/bin/bash
-
-# Create directory if not exi
-
-mkdir -p src/components/auth
-
-cat << 'EOF' > src/components/auth/Onboarding.tsx
 "use client"
 
 import Image from "next/image";
@@ -95,13 +88,3 @@ export default function Onboarding() {
     </div>
   );
 }
-EOF
-
-mkdir -p src/app/login
-cat << 'EOF' > src/app/login/page.tsx
-import Onboarding from "@/components/auth/Onboarding";
-
-export default function Page() {
-  return <Onboarding />;
-}
-EOF
