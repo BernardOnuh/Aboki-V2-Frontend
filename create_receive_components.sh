@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Create directory if not exi
-mkdir -p src/components/add
 
 cat << 'EOF' > src/components/add/AddCashInput.tsx
 "use client"
