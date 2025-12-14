@@ -14,7 +14,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "signup">("signup");
 
   return (
-    <div className="min-h-screen bg-[#F6EDFF] dark:from-[#1a1a1a] dark:via-[#252525] dark:to-[#2d2d2d] flex flex-col transition-colors duration-500">
+    <div className="min-h-screen bg-[#F6EDFF] dark:bg-gradient-to-b dark:from-[#1a1a1a] dark:via-[#252525] dark:to-[#2d2d2d] flex flex-col transition-colors duration-500">
       
       {/* Theme toggle */}
       <button 
