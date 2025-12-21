@@ -1,210 +1,417 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { 
   ChevronLeftIcon, 
-  ShieldCheckIcon,
   CheckCircleIcon,
-  LinkIcon,
-  ClipboardDocumentIcon
+  ExclamationCircleIcon,
+  ArrowPathIcon,
+  FingerPrintIcon,
+  ShieldCheckIcon
 } from "@heroicons/react/24/outline";
+import apiClient from "@/lib/api-client";
+import passkeyClient from "@/lib/passkey-client";
 
-function ReviewContent() {
+function ReviewPaymentContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
-  // Data Params
   const username = searchParams.get("username") || "@unknown";
   const amount = searchParams.get("amount") || "0";
-  const fiatAmount = searchParams.get("fiat"); // For Bank
-  const type = searchParams.get("type"); // 'bank', 'link', 'crypto'
-  const source = searchParams.get("source"); // For back button logic
+  const note = searchParams.get("note") || "";
+  const source = searchParams.get("source");
+  const avatar = searchParams.get("avatar") || "?";
+  const fullAddress = searchParams.get("fullAddress");
 
-  const [isHolding, setIsHolding] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [isSent, setIsSent] = useState(false);
-  const [generatedLink, setGeneratedLink] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [explorerUrl, setExplorerUrl] = useState<string | null>(null);
+  const [passkeyVerified, setPasskeyVerified] = useState(false);
 
-  // Dynamic Back Link logic
-  const getBackLink = () => {
-    if (type === 'bank') return "/send/amount-ngn"; // Go back to NGN input
-    return "/send/amount"; // Go back to standard USD input
-  };
-
-  const HOLD_DURATION = 1500;
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isHolding && !isSent) {
-      const step = 100 / (HOLD_DURATION / 20);
-      interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            setIsSent(true);
-            setIsHolding(false);
-            // If it's a magic link, generate one
-            if (username === "Magic Link") {
-               setGeneratedLink(`https://aboki.com/claim/${Math.random().toString(36).substring(7)}`);
-            }
-            clearInterval(interval);
-            return 100;
-          }
-          return prev + step;
-        });
-      }, 20);
-    } else if (!isSent) {
-      setProgress(0);
-    }
-    return () => clearInterval(interval);
-  }, [isHolding, isSent, username]);
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(generatedLink);
-    setCopied(true);
-  };
-
-  // --- SUCCESS SCREEN ---
-  if (isSent) {
-    // SCENARIO A: Magic Link Success
-    if (username === "Magic Link") {
-      return (
-        <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
-           <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mb-6 animate-bounce">
-              <LinkIcon className="w-10 h-10 text-pink-500" />
-           </div>
-           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Link Created!</h1>
-           <p className="text-slate-500 mb-8">Anyone with this link can claim ${amount}.</p>
-
-           {/* The Link Card */}
-           <div className="w-full max-w-sm bg-white dark:bg-[#3D3D3D] p-4 rounded-2xl border-2 border-slate-200 dark:border-[#A3A3A3] mb-8 flex items-center gap-3">
-              <div className="flex-1 overflow-hidden">
-                <p className="text-slate-900 dark:text-white font-mono text-sm truncate">{generatedLink}</p>
-              </div>
-              <button onClick={copyLink} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                {copied ? <span className="text-green-500 font-bold text-xs">Copied</span> : <ClipboardDocumentIcon className="w-5 h-5 text-slate-400" />}
-              </button>
-           </div>
-
-           <Link href="/">
-              <button className="px-8 py-3 bg-[#D364DB] text-white font-bold rounded-full shadow-lg">
-                Done
-              </button>
-           </Link>
-        </div>
-      );
-    }
-
-    // SCENARIO B: Standard Success (Bank/P2P)
-    return (
-      <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#D364DB] flex flex-col items-center justify-center text-white p-6 text-center animate-in fade-in duration-500">
-        <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mb-6">
-          <CheckCircleIcon className="w-12 h-12 text-white" />
-        </div>
-        <h1 className="text-4xl font-bold mb-2">Sent!</h1>
-        <p className="text-lg opacity-90 mb-8">
-          {fiatAmount ? `You sent ₦${parseInt(fiatAmount).toLocaleString()}` : `You sent $${amount}`} to {username}
-        </p>
-        <Link href="/">
-          <button className="px-8 py-3 bg-white text-[#D364DB] font-bold rounded-full shadow-lg hover:scale-105 transition-transform">
-            Done
-          </button>
-        </Link>
-      </div>
-    );
+  // Determine back link based on source
+  let backLink = `/send/amount?username=${username}&avatar=${avatar}&source=${source}`;
+  if (source === "crypto" && fullAddress) {
+    backLink = `/send/amount?username=${encodeURIComponent(username)}&avatar=${avatar}&source=crypto&fullAddress=${encodeURIComponent(fullAddress)}`;
   }
 
-  // --- REVIEW SCREEN ---
-  return (
-    <div className="w-full max-w-[1080px] mx-auto min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 overflow-hidden flex flex-col">
+  const handlePasskeyVerification = async () => {
+    setIsVerifying(true);
+    setError(null);
+
+    try {
+      // Check if passkey is supported
+      if (!passkeyClient.isSupported()) {
+        setError("Passkey authentication is not supported in this browser. Please use a modern browser with biometric support.");
+        setIsVerifying(false);
+        return false;
+      }
+
+      console.log("🔐 Starting passkey verification...");
+
+      // Prepare transaction data for verification
+      const transactionData = {
+        type: (source === "crypto" ? "withdraw" : "send") as "send" | "withdraw",
+        amount: parseFloat(amount),
+        recipient: source === "crypto" ? fullAddress! : username,
+        message: note || undefined
+      };
+
+      // Trigger passkey verification
+      const result = await passkeyClient.verifyTransaction(transactionData);
+
+      if (!result.verified) {
+        setError(result.error || "Passkey verification failed");
+        setIsVerifying(false);
+        return false;
+      }
+
+      // Store verification token in API client
+      if (result.token) {
+        apiClient.setPasskeyVerificationToken(result.token);
+      }
+
+      console.log("✅ Passkey verification successful");
+      setPasskeyVerified(true);
+      setIsVerifying(false);
+      return true;
+
+    } catch (err: any) {
+      console.error("❌ Passkey verification error:", err);
+      setError(err.message || "Passkey verification failed");
+      setIsVerifying(false);
+      return false;
+    }
+  };
+
+  const handleSend = async () => {
+    // Step 1: Verify with passkey first if not already verified
+    if (!passkeyVerified) {
+      const verified = await handlePasskeyVerification();
+      if (!verified) {
+        return;
+      }
+    }
+
+    // Step 2: Process the transaction
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // Check if user is authenticated
+      const token = apiClient.getToken();
+      if (!token) {
+        setError("Please log in to send payments");
+        setIsProcessing(false);
+        router.push(`/auth?redirect=${encodeURIComponent(`/send/review?username=${username}&amount=${amount}&note=${encodeURIComponent(note)}&source=${source}`)}`);
+        return;
+      }
+
+      let response;
+
+      if (source === "crypto") {
+        // ✅ EXTERNAL WALLET - Send to any Base address
+        if (!fullAddress) {
+          setError("Invalid wallet address");
+          setIsProcessing(false);
+          return;
+        }
+
+        console.log("🔷 Sending to external wallet (passkey verified):", {
+          address: fullAddress,
+          amount: parseFloat(amount),
+          message: note || undefined
+        });
+
+        response = await apiClient.sendToExternal({
+          address: fullAddress,
+          amount: parseFloat(amount),
+          message: note || undefined
+        });
+
+        console.log("✅ External wallet response:", response);
+
+      } else {
+        // ✅ USERNAME - Send to another Aboki user
+        const cleanUsername = username.replace('@', '');
+        
+        console.log("👤 Sending to username (passkey verified):", {
+          username: cleanUsername,
+          amount: parseFloat(amount),
+          message: note || undefined
+        });
+
+        response = await apiClient.sendToUsername({
+          username: cleanUsername,
+          amount: parseFloat(amount),
+          message: note || undefined
+        });
+
+        console.log("✅ Username response:", response);
+      }
+
+      // Clear passkey token after use
+      apiClient.clearPasskeyVerificationToken();
+      passkeyClient.clearVerificationToken();
+
+      if (response.success && response.data) {
+        setSuccess(true);
+        setTxHash(response.data.transactionHash);
+        setExplorerUrl(response.data.explorerUrl || null);
+        
+        // Show success for 2 seconds then redirect
+        setTimeout(() => {
+          router.push(`/send/success?txHash=${response.data!.transactionHash}&amount=${amount}&to=${username}`);
+        }, 2000);
+      } else {
+        // Handle specific error for missing passkey verification
+        if (response.error?.includes('verification required') || response.error?.includes('PASSKEY_VERIFICATION_REQUIRED')) {
+          setPasskeyVerified(false);
+          setError("Transaction verification expired. Please verify again.");
+        } else {
+          setError(response.error || "Transaction failed");
+        }
+      }
+    } catch (err: any) {
+      console.error("❌ Send error:", err);
+      setError(err.message || "An unexpected error occurred");
       
-      <header className="px-6 py-6 flex items-center justify-center relative">
-        <button 
-          onClick={() => router.back()} // Use router.back() to rely on browser history or fallback
-          className="absolute left-6 p-3 -ml-3 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
-        >
+      // Clear verification tokens on error
+      apiClient.clearPasskeyVerificationToken();
+      passkeyClient.clearVerificationToken();
+      setPasskeyVerified(false);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="w-full max-w-[1080px] mx-auto h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 flex flex-col">
+      
+      {/* Header - Fixed at top */}
+      <header className="flex-shrink-0 px-6 py-4 flex items-center gap-4">
+        <Link href={backLink} className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
           <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
-        </button>
-        <h1 className="font-bold text-xl text-slate-900 dark:text-white">Review</h1>
+        </Link>
+        <h1 className="font-bold text-xl text-slate-900 dark:text-white">
+          Review Payment
+        </h1>
       </header>
 
-      <div className="flex-1 px-6 mt-4">
-        
-        <div className="bg-white dark:bg-[#3D3D3D] rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-[#A3A3A3]">
-          <div className="text-center py-6 border-b border-dashed border-slate-200 dark:border-[#A3A3A3]">
-            <span className="text-sm font-bold text-slate-400 tracking-wider">YOU SEND</span>
-            
-            {/* Display NGN if Bank, else USD */}
-            {fiatAmount ? (
-               <div className="text-4xl font-bold text-slate-900 dark:text-white mt-2 tracking-tighter">
-                 ₦{parseInt(fiatAmount).toLocaleString()}
-               </div>
-            ) : (
-               <div className="text-5xl font-bold text-slate-900 dark:text-white mt-2 tracking-tighter">
-                 ${amount}<span className="text-3xl text-slate-400">.00</span>
-               </div>
-            )}
-          </div>
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex flex-col items-center">
+          
+          {/* Error Display */}
+          {error && (
+            <div className="w-full max-w-md mb-6 p-4 bg-red-100 dark:bg-red-900/30 border-2 border-red-500 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+              <ExclamationCircleIcon className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-bold text-red-900 dark:text-red-200 text-sm mb-1">
+                  {passkeyVerified ? "Transaction Failed" : "Verification Failed"}
+                </p>
+                <p className="text-red-700 dark:text-red-300 text-sm">
+                  {error}
+                </p>
+              </div>
+            </div>
+          )}
 
-          <div className="py-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-500 font-medium">To</span>
-              <div className="flex items-center gap-2">
-                 <span className="font-bold text-slate-900 dark:text-white">{username}</span>
+          {/* Success Display */}
+          {success && (
+            <div className="w-full max-w-md mb-6 p-4 bg-green-100 dark:bg-green-900/30 border-2 border-green-500 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+              <CheckCircleIcon className="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-bold text-green-900 dark:text-green-200 text-sm mb-1">
+                  Payment Successful! 🎉
+                </p>
+                <p className="text-green-700 dark:text-green-300 text-sm">
+                  Redirecting to confirmation...
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Passkey Verification Status */}
+          {passkeyVerified && !success && (
+            <div className="w-full max-w-md mb-6 p-4 bg-green-100 dark:bg-green-900/30 border-2 border-green-500 rounded-2xl flex items-center gap-3">
+              <ShieldCheckIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
+              <div className="flex-1">
+                <p className="font-bold text-green-900 dark:text-green-200 text-sm">
+                  Verified with Passkey ✓
+                </p>
+                <p className="text-green-700 dark:text-green-300 text-xs">
+                  Transaction authenticated
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Payment Summary Card */}
+          <div className="w-full max-w-md bg-white dark:bg-[#3D3D3D] border-2 border-slate-200 dark:border-[#A3A3A3] rounded-3xl p-6 shadow-lg mb-4">
+            
+            {/* Recipient */}
+            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
+              <div className="w-14 h-14 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-lg font-bold text-purple-600 dark:text-purple-400">
+                {avatar}
+              </div>
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Sending to</span>
+                <span className="text-lg font-bold text-slate-900 dark:text-white truncate">
+                  {username}
+                </span>
+                {source === "crypto" && fullAddress && (
+                  <span className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate">
+                    {fullAddress}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* If Bank, show the rate used */}
-            {fiatAmount && (
-               <div className="flex items-center justify-between">
-                 <span className="text-slate-500 font-medium">Rate</span>
-                 <span className="font-bold text-slate-900 dark:text-white">$1 = ₦1,450</span>
-               </div>
+            {/* Amount */}
+            <div className="mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-2">Amount</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-4xl font-bold text-slate-900 dark:text-white">${amount}</span>
+                <span className="text-lg text-slate-500">USDC</span>
+              </div>
+            </div>
+
+            {/* Note */}
+            {note && (
+              <div className="mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
+                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-2">Note</span>
+                <p className="text-slate-700 dark:text-slate-200 text-sm italic">
+                  "{note}"
+                </p>
+              </div>
             )}
 
-            <div className="pt-4 mt-2 border-t border-slate-100 dark:border-[#A3A3A3] flex items-center justify-between">
-              <span className="font-bold text-slate-900 dark:text-white">Total Deduction</span>
-              <span className="font-bold text-slate-900 dark:text-white">${amount} USD</span>
+            {/* Security Info */}
+            <div className="mb-6 pb-6 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2 mb-2">
+                <FingerPrintIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Security</span>
+              </div>
+              <p className="text-sm text-slate-700 dark:text-slate-200">
+                {passkeyVerified 
+                  ? "✓ Verified with biometric authentication" 
+                  : "Requires biometric verification to proceed"
+                }
+              </p>
+            </div>
+
+            {/* Payment Method */}
+            <div className="mb-6">
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-2">Payment Method</span>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">$</span>
+                </div>
+                <span className="text-slate-900 dark:text-white font-medium">
+                  {source === "crypto" ? "External Wallet (Base)" : "Aboki Balance"}
+                </span>
+              </div>
+            </div>
+
+            {/* Network Fee Info */}
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Network Fee</span>
+                <span className="text-sm font-bold text-purple-600 dark:text-purple-400">FREE 🎉</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Gas sponsored by Coinbase
+              </p>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center justify-center gap-2 mt-6 text-slate-400">
-          <ShieldCheckIcon className="w-4 h-4" />
-          <span className="text-xs font-medium">Secured by Coinbase Smart Wallet</span>
+          {/* Transaction Hash (if processing or success) */}
+          {(isProcessing || txHash) && (
+            <div className="w-full max-w-md mb-4 p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-1 font-bold">
+                {isProcessing ? "Processing Transaction..." : "Transaction Hash"}
+              </p>
+              {txHash ? (
+                <a 
+                  href={explorerUrl || `https://basescan.org/tx/${txHash}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm font-mono text-purple-600 dark:text-purple-400 hover:underline break-all"
+                >
+                  {txHash}
+                </a>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <ArrowPathIcon className="w-4 h-4 animate-spin text-slate-400" />
+                  <span className="text-sm text-slate-500 dark:text-slate-400">Waiting for confirmation...</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action Button */}
+          <div className="w-full max-w-md mb-6">
+            <button 
+              onClick={handleSend}
+              disabled={isProcessing || isVerifying || success}
+              className="w-full py-4 rounded-2xl bg-[#D364DB] text-white font-bold text-lg shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.8)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] active:translate-y-0 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none flex items-center justify-center gap-2"
+            >
+              {isVerifying ? (
+                <>
+                  <FingerPrintIcon className="w-5 h-5 animate-pulse" />
+                  Verifying Biometric...
+                </>
+              ) : isProcessing ? (
+                <>
+                  <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                  Sending...
+                </>
+              ) : success ? (
+                <>
+                  <CheckCircleIcon className="w-5 h-5" />
+                  Sent Successfully
+                </>
+              ) : passkeyVerified ? (
+                <>
+                  <ShieldCheckIcon className="w-5 h-5" />
+                  Confirm & Send (FREE)
+                </>
+              ) : (
+                <>
+                  <FingerPrintIcon className="w-5 h-5" />
+                  Verify & Send (FREE)
+                </>
+              )}
+            </button>
+
+            <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
+              {passkeyVerified 
+                ? "Transaction verified. Click to complete the transfer."
+                : "Biometric verification required for security"
+              }
+            </p>
+          </div>
+
         </div>
       </div>
 
-      <div className="p-6 pb-10">
-        <div className="relative w-full h-16 rounded-2xl bg-slate-200 dark:bg-slate-800 overflow-hidden select-none touch-none shadow-inner">
-          <div 
-            className="absolute top-0 left-0 h-full bg-[#D364DB] transition-all duration-[20ms] ease-linear"
-            style={{ width: `${progress}%` }}
-          />
-          <button
-            onMouseDown={() => !isSent && setIsHolding(true)}
-            onMouseUp={() => setIsHolding(false)}
-            onMouseLeave={() => setIsHolding(false)}
-            onTouchStart={() => !isSent && setIsHolding(true)}
-            onTouchEnd={() => setIsHolding(false)}
-            className="absolute inset-0 w-full h-full flex items-center justify-center z-10 focus:outline-none"
-          >
-            <span className={`font-bold text-lg transition-colors ${progress > 50 ? 'text-white' : 'text-slate-500'}`}>
-              {isHolding ? "Keep holding..." : (username === "Magic Link" ? "Hold to Create Link" : "Hold to Send")}
-            </span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
 
 export default function ReviewPayment() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <ReviewContent />
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D364DB]"></div>
+      </div>
+    }>
+      <ReviewPaymentContent />
     </Suspense>
   );
 }

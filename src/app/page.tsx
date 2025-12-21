@@ -9,6 +9,7 @@ import ActionGrid from "@/components/dashboard/ActionGrid";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import ScanSection from "@/components/dashboard/ScanSection";
 import { BellIcon, MoonIcon, SunIcon, StarIcon, ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
+import apiClient from "@/lib/api-client";
 
 export default function Home() {
   const router = useRouter();
@@ -24,7 +25,8 @@ export default function Home() {
     setMounted(true);
     
     const checkAuth = async () => {
-      const token = localStorage.getItem("aboki_auth_token");
+      // Use apiClient to get token
+      const token = apiClient.getToken();
       const email = localStorage.getItem("aboki_user_email");
       
       console.log("🔍 Checking auth:", { hasToken: !!token, email });
@@ -36,7 +38,7 @@ export default function Home() {
       }
 
       try {
-        // Verify token with backend using correct endpoint
+        // Verify token with backend
         const response = await fetch("https://apis.aboki.xyz/api/users/me", {
           headers: { 
             "Authorization": `Bearer ${token}`,
@@ -48,7 +50,7 @@ export default function Home() {
         
         if (!response.ok) {
           console.log("❌ Token invalid, clearing and redirecting");
-          localStorage.removeItem("aboki_auth_token");
+          apiClient.clearToken();
           localStorage.removeItem("aboki_user_email");
           localStorage.removeItem("aboki_auth_method");
           router.push("/auth");
@@ -63,7 +65,7 @@ export default function Home() {
           setUser({
             name: result.data.name || "User",
             email: result.data.email || email || "user@example.com",
-            points: 120 // You can add points field to your User model if needed
+            points: 120
           });
           
           // Store email for future use
@@ -94,8 +96,8 @@ export default function Home() {
   const handleLogout = () => {
     console.log("🚪 Logging out...");
     
-    // Clear all auth data
-    localStorage.removeItem("aboki_auth_token");
+    // Clear all auth data using apiClient
+    apiClient.clearToken();
     localStorage.removeItem("aboki_user_email");
     localStorage.removeItem("aboki_auth_method");
     
@@ -228,7 +230,6 @@ export default function Home() {
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
-                        // Add security navigation when ready
                       }}
                       className="w-full text-left px-3 py-2 rounded-lg hover:bg-purple-50 dark:hover:bg-[#252525] text-gray-900 dark:text-purple-100 text-sm transition-colors"
                     >
