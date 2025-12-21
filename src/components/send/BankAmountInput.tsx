@@ -33,6 +33,12 @@ interface RateData {
   timestamp?: string;
 }
 
+// ✅ UTILITY: Proper rounding to avoid floating-point precision issues
+const roundToNearest = (value: number, decimals: number = 2): number => {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+};
+
 function BankAmountContent() {
   const searchParams = useSearchParams();
   const name = searchParams.get("name") || "Unknown";
@@ -103,7 +109,7 @@ function BankAmountContent() {
     return () => clearTimeout(timeoutId);
   }, [inputValue, inputMode]);
 
-  // ✅ FIXED: Correct fee calculation with decimal support
+  // ✅ FIXED: Correct fee calculation with decimal support and proper rounding
   const { usdcAmount, ngnAmount, feeUSDC, feeNGN, netNGN, totalUSDC } = useMemo(() => {
     if (!rateData || !inputValue) {
       return { 
@@ -137,21 +143,21 @@ function BankAmountContent() {
       const feeNGNAmount = fee * rateData.offrampRate;
 
       return {
-        usdcAmount: val.toFixed(6),
-        ngnAmount: ngn.toFixed(2),
-        feeUSDC: fee.toFixed(6),
-        feeNGN: feeNGNAmount.toFixed(2),
-        netNGN: ngn.toFixed(2),
-        totalUSDC: val.toFixed(6)
+        usdcAmount: roundToNearest(val, 6).toFixed(6),
+        ngnAmount: roundToNearest(ngn, 2).toFixed(2),
+        feeUSDC: roundToNearest(fee, 6).toFixed(6),
+        feeNGN: roundToNearest(feeNGNAmount, 2).toFixed(2),
+        netNGN: roundToNearest(ngn, 2).toFixed(2),
+        totalUSDC: roundToNearest(val, 6).toFixed(6)
       };
     } else {
-      // ✅ FIXED: User enters NGN they want to RECEIVE (with decimal support)
+      // ✅ FIXED: User enters NGN they want to RECEIVE (with decimal support and proper rounding)
       const feePercentage = rateData.fee.percentage / 100;
       
       // USDC needed to get the NGN amount (before fee)
       const usdcForNGN = val / rateData.offrampRate;
       
-      // Calculate fee - it's 1.5% of the USDC amount but capped at max fee
+      // Calculate fee - it's a percentage of the USDC amount but capped at max fee
       let fee = Math.min(usdcForNGN * feePercentage, rateData.fee.maxFeeUSD);
       
       // Total USDC needed
@@ -163,14 +169,18 @@ function BankAmountContent() {
       // Final calculation
       const final = usdcForNGN + fee;
       const feeNGNAmount = fee * rateData.offrampRate;
+      
+      // ✅ CRITICAL FIX: Use Math.ceil to ensure we never send less USDC than needed
+      // This prevents losing 1 Naira due to floating-point conversion
+      const finalUSDCCeiled = Math.ceil(final * 1000000) / 1000000;
 
       return {
-        usdcAmount: final.toFixed(6),
-        ngnAmount: val.toFixed(2), // Keep exact user input with decimals
-        feeUSDC: fee.toFixed(6),
-        feeNGN: feeNGNAmount.toFixed(2),
-        netNGN: val.toFixed(2),
-        totalUSDC: final.toFixed(6)
+        usdcAmount: finalUSDCCeiled.toFixed(6),
+        ngnAmount: roundToNearest(val, 2).toFixed(2),
+        feeUSDC: roundToNearest(fee, 6).toFixed(6),
+        feeNGN: roundToNearest(feeNGNAmount, 2).toFixed(2),
+        netNGN: roundToNearest(val, 2).toFixed(2),
+        totalUSDC: finalUSDCCeiled.toFixed(6)
       };
     }
   }, [inputValue, inputMode, rateData]);
@@ -204,7 +214,7 @@ function BankAmountContent() {
           const usdcForNGN = val / rateData.offrampRate;
           const fee = Math.min(usdcForNGN * feePercentage, rateData.fee.maxFeeUSD);
           const ngn = (val - fee) * rateData.offrampRate;
-          setInputValue(ngn.toFixed(2));
+          setInputValue(roundToNearest(ngn, 2).toFixed(2));
         }
       }
     }
