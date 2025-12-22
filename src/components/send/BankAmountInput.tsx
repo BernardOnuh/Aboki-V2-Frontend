@@ -69,7 +69,7 @@ function BankAmountContent() {
 
         const balanceResponse = await apiClient.getWalletBalance();
         if (balanceResponse.success && balanceResponse.data) {
-          const usdcBalance = parseFloat(balanceResponse.data.usdcBalance || balanceResponse.data.balance || '0');
+          const usdcBalance = parseFloat(balanceResponse.data.usdcBalance || '0');
           setBalance(usdcBalance);
         }
         setLoadingBalance(false);

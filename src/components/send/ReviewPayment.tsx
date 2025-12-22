@@ -1,3 +1,4 @@
+// ============= src/components/ReviewPaymentContent.tsx (UPDATED) =============
 "use client"
 
 import { useState, Suspense } from "react";
@@ -32,6 +33,7 @@ function ReviewPaymentContent() {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [explorerUrl, setExplorerUrl] = useState<string | null>(null);
   const [passkeyVerified, setPasskeyVerified] = useState(false);
+  const [verificationToken, setVerificationToken] = useState<string | null>(null);
 
   // Determine back link based on source
   let backLink = `/send/amount?username=${username}&avatar=${avatar}&source=${source}`;
@@ -39,7 +41,11 @@ function ReviewPaymentContent() {
     backLink = `/send/amount?username=${encodeURIComponent(username)}&avatar=${avatar}&source=crypto&fullAddress=${encodeURIComponent(fullAddress)}`;
   }
 
-  const handlePasskeyVerification = async () => {
+  /**
+   * STEP 1: Handle Passkey Verification
+   * Gets challenge from backend, user completes biometric auth, sends assertion back
+   */
+  const handlePasskeyVerification = async (): Promise<boolean> => {
     setIsVerifying(true);
     setError(null);
 
@@ -53,15 +59,17 @@ function ReviewPaymentContent() {
 
       console.log("🔐 Starting passkey verification...");
 
-      // Prepare transaction data for verification
+      // ============= PREPARE TRANSACTION DATA =============
       const transactionData = {
         type: (source === "crypto" ? "withdraw" : "send") as "send" | "withdraw",
         amount: parseFloat(amount),
-        recipient: source === "crypto" ? fullAddress! : username,
+        recipient: source === "crypto" ? fullAddress! : username.replace('@', ''),
         message: note || undefined
       };
 
-      // Trigger passkey verification
+      console.log('📱 Transaction details for verification:', transactionData);
+
+      // ============= TRIGGER PASSKEY VERIFICATION =============
       const result = await passkeyClient.verifyTransaction(transactionData);
 
       if (!result.verified) {
@@ -70,9 +78,14 @@ function ReviewPaymentContent() {
         return false;
       }
 
-      // Store verification token in API client
+      // ============= STORE VERIFICATION TOKEN =============
       if (result.token) {
+        // Store token in both passkey client and API client
+        passkeyClient.getVerificationToken(); // Ensures it's stored
         apiClient.setPasskeyVerificationToken(result.token);
+        setVerificationToken(result.token);
+        
+        console.log("✅ Passkey verification token stored");
       }
 
       console.log("✅ Passkey verification successful");
@@ -88,16 +101,22 @@ function ReviewPaymentContent() {
     }
   };
 
+  /**
+   * STEP 2: Handle Transaction
+   * First verify with passkey, then send transaction with verification token
+   */
   const handleSend = async () => {
-    // Step 1: Verify with passkey first if not already verified
+    // ============= STEP 1: Verify with passkey if not already verified =============
     if (!passkeyVerified) {
+      console.log('🔐 Passkey not verified - requesting verification first...');
       const verified = await handlePasskeyVerification();
       if (!verified) {
+        console.error('❌ Passkey verification failed - aborting transaction');
         return;
       }
     }
 
-    // Step 2: Process the transaction
+    // ============= STEP 2: Process the transaction =============
     setIsProcessing(true);
     setError(null);
 
@@ -111,20 +130,31 @@ function ReviewPaymentContent() {
         return;
       }
 
+      // Get verification token
+      const passKeyToken = passkeyClient.getVerificationToken();
+      if (!passKeyToken) {
+        setError("Passkey verification token not found. Please verify again.");
+        setIsProcessing(false);
+        return;
+      }
+
+      console.log('📡 Sending transaction with passkey verification...');
+      console.log('   Token present:', !!passKeyToken);
+      console.log('   Source:', source);
+
       let response;
 
       if (source === "crypto") {
-        // ✅ EXTERNAL WALLET - Send to any Base address
+        // ============= EXTERNAL WALLET - Send to any Base address =============
         if (!fullAddress) {
           setError("Invalid wallet address");
           setIsProcessing(false);
           return;
         }
 
-        console.log("🔷 Sending to external wallet (passkey verified):", {
-          address: fullAddress,
-          amount: parseFloat(amount),
-          message: note || undefined
+        console.log("🔷 Sending to external wallet:", {
+          address: fullAddress.slice(0, 10) + '...',
+          amount: parseFloat(amount)
         });
 
         response = await apiClient.sendToExternal({
@@ -136,13 +166,12 @@ function ReviewPaymentContent() {
         console.log("✅ External wallet response:", response);
 
       } else {
-        // ✅ USERNAME - Send to another Aboki user
+        // ============= USERNAME - Send to another Aboki user =============
         const cleanUsername = username.replace('@', '');
         
-        console.log("👤 Sending to username (passkey verified):", {
+        console.log("👤 Sending to username:", {
           username: cleanUsername,
-          amount: parseFloat(amount),
-          message: note || undefined
+          amount: parseFloat(amount)
         });
 
         response = await apiClient.sendToUsername({
@@ -154,27 +183,39 @@ function ReviewPaymentContent() {
         console.log("✅ Username response:", response);
       }
 
-      // Clear passkey token after use
-      apiClient.clearPasskeyVerificationToken();
-      passkeyClient.clearVerificationToken();
-
+      // ============= HANDLE RESPONSE =============
       if (response.success && response.data) {
         setSuccess(true);
         setTxHash(response.data.transactionHash);
         setExplorerUrl(response.data.explorerUrl || null);
         
+        console.log('✅ Transaction successful!');
+        console.log('   TxHash:', response.data.transactionHash);
+        console.log('   To:', username);
+
+        // Clear tokens after successful transaction
+        passkeyClient.clearVerificationToken();
+        apiClient.clearPasskeyVerificationToken();
+
         // Show success for 2 seconds then redirect
         setTimeout(() => {
           router.push(`/send/success?txHash=${response.data!.transactionHash}&amount=${amount}&to=${username}`);
         }, 2000);
       } else {
-        // Handle specific error for missing passkey verification
-        if (response.error?.includes('verification required') || response.error?.includes('PASSKEY_VERIFICATION_REQUIRED')) {
+        // Handle specific errors
+        if (response.error?.includes('verification required') || 
+            response.error?.includes('PASSKEY_VERIFICATION_REQUIRED')) {
+          console.error('❌ Verification expired');
           setPasskeyVerified(false);
           setError("Transaction verification expired. Please verify again.");
         } else {
+          console.error('❌ Transaction failed:', response.error);
           setError(response.error || "Transaction failed");
         }
+
+        // Clear tokens on error
+        passkeyClient.clearVerificationToken();
+        apiClient.clearPasskeyVerificationToken();
       }
     } catch (err: any) {
       console.error("❌ Send error:", err);
@@ -193,7 +234,7 @@ function ReviewPaymentContent() {
     <div className="w-full max-w-[1080px] mx-auto h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 flex flex-col">
       
       {/* Header - Fixed at top */}
-      <header className="flex-shrink-0 px-6 py-4 flex items-center gap-4">
+      <header className="flex-shrink-0 px-6 py-4 flex items-center gap-4 border-b border-slate-200 dark:border-slate-700">
         <Link href={backLink} className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
           <ChevronLeftIcon className="w-6 h-6 text-slate-900 dark:text-white" />
         </Link>
@@ -242,10 +283,10 @@ function ReviewPaymentContent() {
               <ShieldCheckIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
               <div className="flex-1">
                 <p className="font-bold text-green-900 dark:text-green-200 text-sm">
-                  Verified with Passkey ✓
+                  Verified with Biometric ✓
                 </p>
                 <p className="text-green-700 dark:text-green-300 text-xs">
-                  Transaction authenticated
+                  Transaction authenticated and ready to send
                 </p>
               </div>
             </div>
@@ -266,7 +307,7 @@ function ReviewPaymentContent() {
                 </span>
                 {source === "crypto" && fullAddress && (
                   <span className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate">
-                    {fullAddress}
+                    {fullAddress.slice(0, 10)}...{fullAddress.slice(-8)}
                   </span>
                 )}
               </div>
@@ -343,12 +384,12 @@ function ReviewPaymentContent() {
                   rel="noopener noreferrer"
                   className="text-sm font-mono text-purple-600 dark:text-purple-400 hover:underline break-all"
                 >
-                  {txHash}
+                  {txHash.slice(0, 20)}...{txHash.slice(-20)}
                 </a>
               ) : (
                 <div className="flex items-center gap-2">
                   <ArrowPathIcon className="w-4 h-4 animate-spin text-slate-400" />
-                  <span className="text-sm text-slate-500 dark:text-slate-400">Waiting for confirmation...</span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400">Confirming on blockchain...</span>
                 </div>
               )}
             </div>
@@ -379,7 +420,7 @@ function ReviewPaymentContent() {
               ) : passkeyVerified ? (
                 <>
                   <ShieldCheckIcon className="w-5 h-5" />
-                  Confirm & Send (FREE)
+                  Send Payment (FREE)
                 </>
               ) : (
                 <>
@@ -391,8 +432,8 @@ function ReviewPaymentContent() {
 
             <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
               {passkeyVerified 
-                ? "Transaction verified. Click to complete the transfer."
-                : "Biometric verification required for security"
+                ? "Your transaction is verified. Click to complete the transfer."
+                : "Biometric verification is required for your security"
               }
             </p>
           </div>

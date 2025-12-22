@@ -95,6 +95,11 @@ export default function PWAGate({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+  // Allow access to /install page even without PWA
+  if (typeof window !== 'undefined' && window.location.pathname === '/install') {
+    return <>{children}</>;
+  }
+
   // Show install gate
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F6EDFF] via-[#E8D5FF] to-[#D9C4FF] dark:from-[#1a1a1a] dark:via-[#252525] dark:to-[#2d2d2d] flex items-center justify-center p-6">

@@ -1,13 +1,18 @@
-// ============= lib/api-client.ts (WITH REWARD ENDPOINTS) =============
-// API Client for Aboki Backend
+// ============= lib/api-client.ts (PRODUCTION READY) =============
+// API Client for Aboki Backend with Enhanced Token Management
 
-const BASE_URL = 'https://apis.aboki.xyz';
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://apis.aboki.xyz';
 
 interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
   message?: string;
+}
+
+interface TokenData {
+  token: string;
+  expiresAt: number;
 }
 
 interface HistoryParams {
@@ -22,15 +27,22 @@ interface HistoryParams {
 class ApiClient {
   private baseUrl: string;
   private token: string | null = null;
-  private passkeyVerificationToken: string | null = null;
+  private passkeyVerificationToken: TokenData | null = null;
+  
+  // Token configuration
+  private readonly PASSKEY_TOKEN_LIFETIME = 5 * 60 * 1000; // 5 minutes
+  private readonly TOKEN_EXPIRY_WARNING = 30000; // 30 seconds
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
     
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('aboki_auth_token');
+      this.loadPasskeyToken();
     }
   }
+
+  // ============= JWT TOKEN MANAGEMENT =============
 
   setToken(token: string) {
     this.token = token;
@@ -53,19 +65,64 @@ class ApiClient {
     return this.token;
   }
 
+  // ============= PASSKEY TOKEN MANAGEMENT =============
+
   setPasskeyVerificationToken(token: string) {
-    this.passkeyVerificationToken = token;
+    const expiresAt = Date.now() + this.PASSKEY_TOKEN_LIFETIME;
+    
+    this.passkeyVerificationToken = { token, expiresAt };
+    
+    // Use sessionStorage for short-lived tokens (better security)
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('passkey_verification_token', token);
+      sessionStorage.setItem('passkey_verification_token', JSON.stringify({
+        token,
+        expiresAt
+      }));
     }
-    console.log('✅ Passkey verification token stored');
+    
+    console.log('✅ Passkey token stored (expires in 5 min)');
+  }
+
+  private loadPasskeyToken() {
+    if (typeof window === 'undefined') return;
+    
+    const stored = sessionStorage.getItem('passkey_verification_token');
+    if (!stored) return;
+    
+    try {
+      const tokenData: TokenData = JSON.parse(stored);
+      
+      // Check if token is still valid
+      if (Date.now() < tokenData.expiresAt) {
+        this.passkeyVerificationToken = tokenData;
+        console.log('✅ Valid passkey token loaded from storage');
+      } else {
+        console.log('⚠️ Stored passkey token expired, clearing');
+        this.clearPasskeyVerificationToken();
+      }
+    } catch (error) {
+      console.error('❌ Failed to parse stored passkey token:', error);
+      this.clearPasskeyVerificationToken();
+    }
   }
 
   getPasskeyVerificationToken(): string | null {
-    if (!this.passkeyVerificationToken && typeof window !== 'undefined') {
-      this.passkeyVerificationToken = sessionStorage.getItem('passkey_verification_token');
+    // Check expiration before returning
+    if (!this.passkeyVerificationToken) {
+      this.loadPasskeyToken();
     }
-    return this.passkeyVerificationToken;
+    
+    if (this.passkeyVerificationToken) {
+      if (Date.now() < this.passkeyVerificationToken.expiresAt) {
+        return this.passkeyVerificationToken.token;
+      } else {
+        console.warn('⚠️ Passkey token expired');
+        this.clearPasskeyVerificationToken();
+        return null;
+      }
+    }
+    
+    return null;
   }
 
   clearPasskeyVerificationToken() {
@@ -73,8 +130,22 @@ class ApiClient {
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('passkey_verification_token');
     }
-    console.log('🗑️ Passkey verification token cleared');
+    console.log('🗑️ Passkey token cleared');
   }
+
+  isPasskeyTokenExpiringSoon(thresholdMs: number = this.TOKEN_EXPIRY_WARNING): boolean {
+    if (!this.passkeyVerificationToken) return true;
+    
+    const timeRemaining = this.passkeyVerificationToken.expiresAt - Date.now();
+    return timeRemaining < thresholdMs;
+  }
+
+  getPasskeyTokenTimeRemaining(): number {
+    if (!this.passkeyVerificationToken) return 0;
+    return Math.max(0, this.passkeyVerificationToken.expiresAt - Date.now());
+  }
+
+  // ============= HTTP REQUEST HANDLER =============
 
   private async request<T>(
     endpoint: string,
@@ -91,36 +162,27 @@ class ApiClient {
       Object.assign(headers, options.headers);
     }
 
-    // Add authorization if token exists
+    // Add JWT authorization
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    // ✅ FIXED: Add passkey verification header for offramp confirm endpoint
-    if (endpoint.includes('/confirm-account-and-sign') || 
-        endpoint.includes('/send/') || 
-        endpoint.includes('/withdraw')) {
-      const token = this.getPasskeyVerificationToken();
-      if (token) {
-        headers['X-Passkey-Verified'] = 'true';
-        console.log('✅ Adding X-Passkey-Verified header');
-        console.log('   Endpoint:', endpoint);
-        console.log('   Token present:', 'YES');
-      } else {
-        console.warn('⚠️ Passkey verification token missing!');
-        console.warn('   Endpoint:', endpoint);
-        console.warn('   This request will likely fail');
+    // Add passkey token with validation
+    const passkeyToken = this.getPasskeyVerificationToken();
+    if (passkeyToken) {
+      // Warn if token is expiring soon
+      if (this.isPasskeyTokenExpiringSoon()) {
+        console.warn('⚠️ Passkey token expiring soon, request may fail');
       }
+      
+      headers['X-Passkey-Verified-Token'] = passkeyToken;
+      console.log('✅ Passkey token added to request', {
+        endpoint,
+        timeRemaining: `${Math.round(this.getPasskeyTokenTimeRemaining() / 1000)}s`
+      });
     }
 
     try {
-      console.log('🌐 API Request:', {
-        method: options.method || 'GET',
-        endpoint,
-        headers: Object.keys(headers),
-        hasPasskeyHeader: !!headers['X-Passkey-Verified']
-      });
-
       const response = await fetch(url, {
         ...options,
         headers,
@@ -129,10 +191,17 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle token expiration errors
+        if (response.status === 401 && data.code === 'PASSKEY_VERIFICATION_REQUIRED') {
+          this.clearPasskeyVerificationToken();
+          console.error('❌ Passkey token invalid or expired');
+        }
+        
         console.error('❌ API Error:', {
           status: response.status,
           error: data.error || data.message
         });
+        
         return {
           success: false,
           error: data.error || data.message || 'Request failed',
@@ -141,7 +210,7 @@ class ApiClient {
 
       return data;
     } catch (error: any) {
-      console.error('❌ API Request Error:', error);
+      console.error('❌ Network Error:', error);
       return {
         success: false,
         error: error.message || 'Network error occurred',
@@ -149,12 +218,10 @@ class ApiClient {
     }
   }
 
-  // ========== PUBLIC HTTP METHODS ==========
+  // ============= HTTP METHODS =============
 
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'GET',
-    });
+    return this.request<T>(endpoint, { method: 'GET' });
   }
 
   async post<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
@@ -172,16 +239,11 @@ class ApiClient {
   }
 
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'DELETE',
-    });
+    return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
-  // ========== USER ENDPOINTS ==========
+  // ============= USER ENDPOINTS =============
 
-  /**
-   * Get current authenticated user profile
-   */
   async getUserProfile(): Promise<ApiResponse<{
     _id: string;
     name: string;
@@ -197,9 +259,6 @@ class ApiClient {
     return this.get('/api/users/me');
   }
 
-  /**
-   * Update user profile
-   */
   async updateUserProfile(params: {
     name?: string;
     email?: string;
@@ -213,9 +272,6 @@ class ApiClient {
     return this.put('/api/users/me', params);
   }
 
-  /**
-   * Get user by username
-   */
   async getUserByUsername(username: string): Promise<ApiResponse<{
     _id: string;
     name: string;
@@ -230,9 +286,6 @@ class ApiClient {
     return this.get(`/api/users/username/${username}`);
   }
 
-  /**
-   * Get user wallet details
-   */
   async getUserWallet(): Promise<ApiResponse<{
     ownerAddress: string;
     smartAccountAddress: string;
@@ -241,9 +294,6 @@ class ApiClient {
     return this.get('/api/users/wallet');
   }
 
-  /**
-   * Check if username is available
-   */
   async checkUsernameAvailability(username: string): Promise<ApiResponse<{
     available: boolean;
     username: string;
@@ -251,7 +301,7 @@ class ApiClient {
     return this.get(`/api/users/check-username/${username}`);
   }
 
-  // ========== TRANSFER ENDPOINTS ==========
+  // ============= TRANSFER ENDPOINTS =============
 
   async validateUsername(username: string): Promise<ApiResponse<{
     username: string;
@@ -283,7 +333,7 @@ class ApiClient {
 
   /**
    * Send USDC to another user by username
-   * Automatically includes passkey verification if available
+   * ✅ REQUIRES PASSKEY VERIFICATION TOKEN
    */
   async sendToUsername(params: {
     username: string;
@@ -297,14 +347,24 @@ class ApiClient {
     transactionHash: string;
     explorerUrl: string;
     gasSponsored: boolean;
+    verifiedWithPasskey: boolean;
     message?: string;
   }>> {
+    const token = this.getPasskeyVerificationToken();
+    
+    if (!token) {
+      return {
+        success: false,
+        error: 'Passkey verification required for transfers'
+      };
+    }
+    
     return this.post('/api/transfer/send/username', params);
   }
 
   /**
    * Send USDC to external wallet
-   * Automatically includes passkey verification if available
+   * ✅ REQUIRES PASSKEY VERIFICATION TOKEN
    */
   async sendToExternal(params: {
     address: string;
@@ -318,7 +378,17 @@ class ApiClient {
     transactionHash: string;
     explorerUrl: string;
     gasSponsored: boolean;
+    verifiedWithPasskey: boolean;
   }>> {
+    const token = this.getPasskeyVerificationToken();
+    
+    if (!token) {
+      return {
+        success: false,
+        error: 'Passkey verification required for transfers'
+      };
+    }
+    
     return this.post('/api/transfer/send/external', params);
   }
 
@@ -406,19 +476,12 @@ class ApiClient {
       };
     };
     isReal: boolean;
-    // Legacy fields for backward compatibility
-    balance?: string;
-    formattedBalance?: string;
-    address?: string;
   }>> {
     return this.get('/api/wallet/balance');
   }
 
-  // ========== OFFRAMP ENDPOINTS ==========
+  // ============= OFFRAMP ENDPOINTS =============
 
-  /**
-   * Verify Nigerian bank account details
-   */
   async verifyBankAccount(params: {
     accountNumber: string;
     bankCode: string;
@@ -431,11 +494,6 @@ class ApiClient {
     return this.post('/api/offramp/verify-account', params);
   }
 
-  /**
-   * Get current offramp exchange rate
-   * Updated to match actual API response structure
-   * @param amountUSDC - Optional amount in USDC to get specific calculation
-   */
   async getOfframpRate(amountUSDC?: number): Promise<ApiResponse<{
     baseRate: number;
     offrampRate: number;
@@ -466,9 +524,6 @@ class ApiClient {
     return this.get(endpoint);
   }
 
-  /**
-   * Initiate offramp transaction
-   */
   async initiateOfframp(params: {
     amountUSDC: number;
     accountNumber: string;
@@ -482,11 +537,10 @@ class ApiClient {
     accountName: string;
     nextStep: string;
   }>> {
-    // Backend expects beneficiary object with name, accountNumber, bankCode
     return this.post('/api/offramp/initiate', {
       amountUSDC: params.amountUSDC,
       beneficiary: {
-        name: params.name || '', // Backend will use verified name from Lenco
+        name: params.name || '',
         accountNumber: params.accountNumber,
         bankCode: params.bankCode
       }
@@ -495,6 +549,7 @@ class ApiClient {
 
   /**
    * Confirm account and sign with passkey
+   * ✅ REQUIRES VALID PASSKEY VERIFICATION TOKEN
    */
   async confirmOfframpAndSign(params: {
     transactionReference: string;
@@ -506,16 +561,27 @@ class ApiClient {
     amountUSDC: number;
     amountNGN: number;
     accountName: string;
-    lencoReference: string;
+    lencoTransactionId: string;
     estimatedTime: string;
     verifiedWithPasskey: boolean;
   }>> {
+    // Validate token before making request
+    const token = this.getPasskeyVerificationToken();
+    
+    if (!token) {
+      return {
+        success: false,
+        error: 'Passkey verification token missing or expired. Please verify again.'
+      };
+    }
+    
+    if (this.isPasskeyTokenExpiringSoon(10000)) {
+      console.warn('⚠️ Passkey token expiring in <10s, request may fail');
+    }
+    
     return this.post('/api/offramp/confirm-account-and-sign', params);
   }
 
-  /**
-   * Get offramp transaction status
-   */
   async getOfframpStatus(reference: string): Promise<ApiResponse<{
     status: string;
     amountUSDC: number;
@@ -527,9 +593,6 @@ class ApiClient {
     return this.get(`/api/offramp/status/${reference}`);
   }
 
-  /**
-   * Get offramp history
-   */
   async getOfframpHistory(): Promise<ApiResponse<Array<{
     id: string;
     transactionReference: string;
@@ -543,11 +606,8 @@ class ApiClient {
     return this.get('/api/offramp/history');
   }
 
-  // ========== BENEFICIARY ENDPOINTS ==========
+  // ============= BENEFICIARY ENDPOINTS =============
 
-  /**
-   * Add new beneficiary
-   */
   async addBeneficiary(params: {
     name: string;
     accountNumber: string;
@@ -562,9 +622,6 @@ class ApiClient {
     return this.post('/api/offramp/beneficiaries', params);
   }
 
-  /**
-   * Get all beneficiaries
-   */
   async getBeneficiaries(): Promise<ApiResponse<Array<{
     id: string;
     name: string;
@@ -577,23 +634,14 @@ class ApiClient {
     return this.get('/api/offramp/beneficiaries');
   }
 
-  /**
-   * Delete beneficiary
-   */
   async deleteBeneficiary(id: string): Promise<ApiResponse> {
     return this.delete(`/api/offramp/beneficiaries/${id}`);
   }
 
-  /**
-   * Set default beneficiary
-   */
   async setDefaultBeneficiary(id: string): Promise<ApiResponse> {
     return this.put(`/api/offramp/beneficiaries/${id}/default`);
   }
 
-  /**
-   * Get frequently used accounts
-   */
   async getFrequentAccounts(): Promise<ApiResponse<Array<{
     accountNumber: string;
     bankCode: string;
@@ -605,43 +653,12 @@ class ApiClient {
     return this.get('/api/offramp/frequent-accounts');
   }
 
-  // ========== HISTORY ENDPOINTS ==========
+  // ============= HISTORY ENDPOINTS =============
 
-  /**
-   * Get unified transaction history
-   */
   async getTransactionHistory(params: HistoryParams = {}): Promise<ApiResponse<{
-    transactions: Array<{
-      transactionId: string;
-      type: 'onramp' | 'offramp' | 'transfer' | 'link';
-      description: string;
-      amount: number;
-      amountUSDC?: number;
-      amountNGN?: number;
-      currency: string;
-      status: string;
-      date: string;
-      reference?: string;
-      transactionHash?: string;
-      explorerUrl?: string;
-      metadata?: any;
-    }>;
-    summary: {
-      totalTransactions: number;
-      totalOnramp: number;
-      totalOfframp: number;
-      totalTransfer: number;
-      totalLink: number;
-      completedCount: number;
-      pendingCount: number;
-      failedCount: number;
-    };
-    pagination: {
-      limit: number;
-      skip: number;
-      hasMore: boolean;
-      total: number;
-    };
+    transactions: Array<any>;
+    summary: any;
+    pagination: any;
   }>> {
     const queryParams = new URLSearchParams();
     
@@ -656,178 +673,17 @@ class ApiClient {
     return this.get(endpoint);
   }
 
-  /**
-   * Get onramp history only
-   */
-  async getOnrampHistoryOnly(params: Omit<HistoryParams, 'type'> = {}): Promise<ApiResponse<{
-    transactions: any[];
-    pagination: {
-      limit: number;
-      skip: number;
-      total: number;
-      hasMore: boolean;
-    };
-  }>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params.status) queryParams.append('status', params.status);
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    if (params.skip) queryParams.append('skip', params.skip.toString());
+  // ============= REWARD ENDPOINTS =============
 
-    const endpoint = `/api/history/onramp${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return this.get(endpoint);
-  }
-
-  /**
-   * Get offramp history only
-   */
-  async getOfframpHistoryOnly(params: Omit<HistoryParams, 'type'> = {}): Promise<ApiResponse<{
-    transactions: any[];
-    pagination: {
-      limit: number;
-      skip: number;
-      total: number;
-      hasMore: boolean;
-    };
-  }>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params.status) queryParams.append('status', params.status);
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    if (params.skip) queryParams.append('skip', params.skip.toString());
-
-    const endpoint = `/api/history/offramp${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return this.get(endpoint);
-  }
-
-  /**
-   * Get transfer history only (from history endpoint)
-   */
-  async getTransferHistoryOnly(params: Omit<HistoryParams, 'type'> = {}): Promise<ApiResponse<{
-    transactions: any[];
-    pagination: {
-      limit: number;
-      skip: number;
-      total: number;
-      hasMore: boolean;
-    };
-  }>> {
-    const queryParams = new URLSearchParams();
-    
-    if (params.status) queryParams.append('status', params.status);
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    if (params.skip) queryParams.append('skip', params.skip.toString());
-
-    const endpoint = `/api/history/transfer${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    return this.get(endpoint);
-  }
-
-  /**
-   * Get transaction statistics
-   */
-  async getTransactionStats(): Promise<ApiResponse<{
-    onramp: {
-      count: number;
-      totalNGN: number;
-      totalUSDC: number;
-      avgAmount: number;
-      completedCount: number;
-    };
-    offramp: {
-      count: number;
-      totalUSDC: number;
-      totalNGN: number;
-      avgAmount: number;
-      completedCount: number;
-    };
-    transfer: {
-      count: number;
-      totalUSDC: number;
-      avgAmount: number;
-      sent: number;
-      received: number;
-      completedCount: number;
-    };
-    overall: {
-      totalTransactions: number;
-      totalCompleted: number;
-      completionRate: number;
-      totalUSDCInvolved: number;
-      totalNGNInvolved: number;
-    };
-  }>> {
-    return this.get('/api/history/stats');
-  }
-
-  // ========== REWARD ENDPOINTS ==========
-
-  /**
-   * Get my reward points and breakdown
-   * 
-   * @returns User's total points, broken down by category:
-   *   - invitePoints: Points from inviting friends
-   *   - tradePoints: Points from trading
-   *   - referralBonusPoints: Points from referrals trading
-   */
-  async getMyRewardPoints(): Promise<ApiResponse<{
-    userId: string;
-    totalPoints: number;
-    pointBreakdown: {
-      invitePoints: number;
-      tradePoints: number;
-      referralBonusPoints: number;
-    };
-    details: {
-      fromInvites: {
-        points: number;
-        description: string;
-      };
-      fromTrades: {
-        points: number;
-        description: string;
-      };
-      fromReferralBonus: {
-        points: number;
-        description: string;
-      };
-    };
-    lastUpdated: string;
-  }>> {
+  async getMyRewardPoints(): Promise<ApiResponse<any>> {
     return this.get('/api/rewards/my-points');
   }
 
-  /**
-   * Get my points earning history
-   * 
-   * @param params Optional filters:
-   *   - type: Filter by 'invite', 'trade', or 'referral_bonus'
-   *   - limit: Number of records (default 50, max 100)
-   *   - skip: Pagination offset (default 0)
-   * 
-   * @returns Array of point transactions with pagination info
-   */
   async getMyRewardHistory(params?: {
     type?: 'invite' | 'trade' | 'referral_bonus';
     limit?: number;
     skip?: number;
-  }): Promise<ApiResponse<{
-    data: Array<{
-      transactionId: string;
-      pointType: 'invite' | 'trade' | 'referral_bonus';
-      points: number;
-      description: string;
-      amount?: number;
-      referrerId?: string;
-      relatedTransactionId?: string;
-      earnedAt: string;
-    }>;
-    pagination: {
-      limit: number;
-      skip: number;
-      total: number;
-      hasMore: boolean;
-    };
-  }>> {
+  }): Promise<ApiResponse<any>> {
     const queryParams = new URLSearchParams();
     
     if (params?.type) queryParams.append('type', params.type);
@@ -838,59 +694,14 @@ class ApiClient {
     return this.get(endpoint);
   }
 
-  /**
-   * Get referral bonus information
-   * 
-   * @returns Information about who referred you and your referral earnings
-   */
-  async getReferralBonusInfo(): Promise<ApiResponse<{
-    youAreInvitedBy?: {
-      username: string;
-      name: string;
-      referralBonusPoints: number;
-      totalPoints: number;
-      earnedFromYou: number;
-    } | null;
-    yourReferralBonus: {
-      totalBonusPoints: number;
-      description: string;
-      howItWorks: {
-        step1: string;
-        step2: string;
-        step3: string;
-        step4: string;
-        step5: string;
-      };
-    };
-  }>> {
+  async getReferralBonusInfo(): Promise<ApiResponse<any>> {
     return this.get('/api/rewards/referral-info');
   }
 
-  /**
-   * Get reward leaderboard
-   * 
-   * @param params Optional filters:
-   *   - type: 'total' (default), 'invite', 'trade', or 'referral'
-   *   - limit: Number of top earners (default 20, max 100)
-   * 
-   * @returns Top earners ranked by points
-   */
   async getRewardLeaderboard(params?: {
     type?: 'total' | 'invite' | 'trade' | 'referral';
     limit?: number;
-  }): Promise<ApiResponse<{
-    leaderboardType: string;
-    leaderboard: Array<{
-      rank: number;
-      username: string;
-      name: string;
-      totalPoints: number;
-      invitePoints: number;
-      tradePoints: number;
-      referralBonusPoints: number;
-    }>;
-    generatedAt: string;
-  }>> {
+  }): Promise<ApiResponse<any>> {
     const queryParams = new URLSearchParams();
     
     if (params?.type) queryParams.append('type', params.type);
@@ -900,90 +711,18 @@ class ApiClient {
     return this.get(endpoint);
   }
 
-  /**
-   * Get reward system rules and information
-   * 
-   * @returns Complete guide on how to earn points and upcoming rewards
-   */
-  async getRewardRules(): Promise<ApiResponse<{
-    pointSystem: {
-      title: string;
-      status: string;
-      description: string;
-      rules: Array<{
-        activity: string;
-        pointsEarned: number | string;
-        description: string;
-        maxPoints: string;
-        example: string;
-      }>;
-      pointCalculations: {
-        tradePoints: {
-          formula: string;
-          examples: Array<{
-            amount: string;
-            points: number;
-          }>;
-        };
-        referralBonus: {
-          formula: string;
-          examples: Array<{
-            referralTradeAmount: string;
-            referralEarns: number;
-            youEarn: number;
-          }>;
-        };
-      };
-      pointAccumulation: {
-        description: string;
-        categories: Array<{
-          name: string;
-          description: string;
-          color: string;
-        }>;
-        totalPoints: string;
-      };
-      upcomingRewards: {
-        status: string;
-        description: string;
-        message: string;
-      };
-      tracking: {
-        description: string;
-        features: string[];
-      };
-    };
-  }>> {
+  async getRewardRules(): Promise<ApiResponse<any>> {
     return this.get('/api/rewards/rules');
   }
 
-  /**
-   * Get reward system statistics
-   * 
-   * @returns Aggregated stats: total points distributed, user count, breakdowns
-   */
-  async getRewardStats(): Promise<ApiResponse<{
-    systemStats: {
-      totalRewardRecords: number;
-      totalUsersWithPoints: number;
-      totalPointsDistributed: number;
-      avgPointsPerUser: number;
-      maxPointsEarned: number;
-      minPointsEarned: number;
-    };
-    pointsBreakdown: {
-      invitePoints: number;
-      tradePoints: number;
-      referralBonusPoints: number;
-    };
-    generatedAt: string;
-  }>> {
+  async getRewardStats(): Promise<ApiResponse<any>> {
     return this.get('/api/rewards/stats');
   }
 }
 
+// Export singleton instance
 const apiClient = new ApiClient(BASE_URL);
 
 export default apiClient;
 export { ApiClient };
-export type { ApiResponse, HistoryParams };
+export type { ApiResponse, TokenData, HistoryParams };

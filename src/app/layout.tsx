@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth-context";
 import ConditionalBottomNav from "@/components/layout/BottomNav";
 import PWAGate from "@/components/PWAGate";
+import PWALinkHandler from "@/components/PWALinkHandler";
 
 const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -71,6 +72,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
+            <PWALinkHandler />
             <PWAGate>
               {children}
               <ConditionalBottomNav />

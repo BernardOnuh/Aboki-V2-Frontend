@@ -3,24 +3,52 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const userAgent = request.headers.get('user-agent') || '';
-  const url = request.nextUrl.clone();
+  const { pathname } = request.nextUrl;
   
-  // Check if the request is from a PWA
-  const isPWA = 
-    request.headers.get('sec-fetch-mode') === 'navigate' &&
-    request.headers.get('sec-fetch-dest') === 'document' ||
-    userAgent.includes('wv'); // WebView indicator
-  
-  // Check for standalone mode via custom header or query param
-  const isStandalone = url.searchParams.has('standalone');
-  
-  // If accessing from regular browser and not on install page
-  if (!isPWA && !isStandalone && url.pathname !== '/install') {
-    // Redirect to install page or show gate
-    console.log('🚫 Browser access detected, enforcing PWA');
+  // Allow these routes without PWA check
+  const allowedRoutes = [
+    '/install',
+    '/_next',
+    '/api',
+    '/manifest.json',
+    '/sw.js',
+    '/favicon.ico',
+  ];
+
+  // Check if the route should bypass PWA check
+  const shouldBypass = allowedRoutes.some(route => pathname.startsWith(route)) ||
+                       pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico)$/);
+
+  if (shouldBypass) {
+    return NextResponse.next();
   }
+
+  // Check if request is from PWA (standalone mode)
+  const userAgent = request.headers.get('user-agent') || '';
+  const secFetchDest = request.headers.get('sec-fetch-dest');
+  const secFetchMode = request.headers.get('sec-fetch-mode');
   
+  // Indicators that it might be PWA
+  const isPWARequest = 
+    userAgent.includes('wv') || // WebView
+    secFetchMode === 'navigate' ||
+    request.headers.get('x-requested-with') === 'com.android.browser';
+
+  // Check for standalone query param (set by PWA)
+  const url = request.nextUrl.clone();
+  const isStandalone = url.searchParams.has('pwa') || url.searchParams.has('standalone');
+
+  // If not from PWA and not already on install page, redirect to install
+  if (!isPWARequest && !isStandalone && pathname !== '/install') {
+    // Store the original URL to redirect after install
+    const redirectUrl = url.clone();
+    redirectUrl.pathname = '/install';
+    redirectUrl.searchParams.set('redirect', pathname);
+    
+    console.log('🚫 Browser access detected, redirecting to /install');
+    return NextResponse.redirect(redirectUrl);
+  }
+
   return NextResponse.next();
 }
 
@@ -31,48 +59,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public files (public folder)
+     * - public files with extensions
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };
-
-// ============= components/PWARedirect.tsx =============
-// Add this to your PWAGate component or as a separate component
-"use client"
-
-import { useEffect } from 'react';
-
-export function PWARedirect() {
-  useEffect(() => {
-    // Detect if opened from PWA
-    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-                  (window.navigator as any).standalone ||
-                  document.referrer.includes('android-app://');
-
-    // If not PWA and there's a PWA URL scheme, redirect to it
-    if (!isPWA && window.location.protocol === 'https:') {
-      // Try to open the PWA version
-      const pwaUrl = `${window.location.origin}${window.location.pathname}?standalone=true`;
-      
-      // For iOS, we can't force open, but we can suggest
-      // For Android, the browser will handle this
-      
-      console.log('📱 Attempting to open in PWA mode:', pwaUrl);
-      
-      // Store the current URL to redirect after install
-      sessionStorage.setItem('aboki_redirect_after_install', window.location.href);
-    }
-
-    // Listen for when user returns from installing PWA
-    if (isPWA) {
-      const redirectUrl = sessionStorage.getItem('aboki_redirect_after_install');
-      if (redirectUrl) {
-        sessionStorage.removeItem('aboki_redirect_after_install');
-        window.location.href = redirectUrl;
-      }
-    }
-  }, []);
-
-  return null;
-}

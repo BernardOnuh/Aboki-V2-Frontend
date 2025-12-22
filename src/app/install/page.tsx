@@ -5,20 +5,34 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowDownTrayIcon, DevicePhoneMobileIcon, CheckCircleIcon, ShieldCheckIcon, BoltIcon, WifiIcon } from "@heroicons/react/24/outline";
-import { usePWA } from "../../hooks/usePWA";
+import { usePWA } from "@/hooks/usePWA";
 
 export default function InstallPage() {
   const router = useRouter();
   const { isPWA, isIOS, isAndroid, canInstall, install, instructions } = usePWA();
   const [installing, setInstalling] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
+
+  // Get redirect path from URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get('redirect');
+      if (redirect) {
+        setRedirectPath(redirect);
+      }
+    }
+  }, []);
 
   // Redirect if already in PWA mode
   useEffect(() => {
     if (isPWA) {
-      router.push('/');
+      // Redirect to the original path or home
+      const destination = redirectPath || '/';
+      router.push(destination);
     }
-  }, [isPWA, router]);
+  }, [isPWA, router, redirectPath]);
 
   const handleInstall = async () => {
     setInstalling(true);
@@ -30,7 +44,8 @@ export default function InstallPage() {
         setShowInstructions(true);
       } else if (result.success) {
         // Will be redirected by PWA detection
-        setTimeout(() => router.push('/'), 2000);
+        const destination = redirectPath || '/';
+        setTimeout(() => router.push(destination), 2000);
       }
     } catch (error) {
       console.error('Install error:', error);

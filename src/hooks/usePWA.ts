@@ -73,6 +73,16 @@ export function usePWA() {
   const handlePostInstallRedirect = (): void => {
     if (!checkIsPWA()) return;
     
+    // Check for redirect parameter in URL
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get('redirect');
+    
+    if (redirect) {
+      window.location.href = redirect;
+      return;
+    }
+    
+    // Fallback to session storage
     const returnUrl = sessionStorage.getItem('aboki_return_url');
     if (returnUrl) {
       sessionStorage.removeItem('aboki_return_url');
