@@ -183,19 +183,26 @@ export default function PasskeySetupPage() {
         }
       );
 
-      const { data } = await optionsRes.json();
-      const challengeBuffer = base64ToUint8Array(data.challenge);
+      const optionsJson = await optionsRes.json();
+      if (!optionsRes.ok || !optionsJson.success) {
+        throw new Error(optionsJson.error || "Failed to get setup options");
+      }
+
+      const { options, challenge } = optionsJson.data;
+      const challengeBuffer = base64ToUint8Array(challenge);
+
+      setStatusMessage("Please confirm biometrics...");
 
       const credential = (await navigator.credentials.create({
         publicKey: {
           challenge: challengeBuffer,
-          rp: data.options.rp,
+          rp: options.rp,
           user: {
             id: new TextEncoder().encode(userData.email),
             name: userData.email,
             displayName: userData.name,
           },
-          pubKeyCredParams: data.options.pubKeyCredParams,
+          pubKeyCredParams: options.pubKeyCredParams,
           timeout: 60000,
           authenticatorSelection: {
             authenticatorAttachment: "platform",
@@ -207,7 +214,7 @@ export default function PasskeySetupPage() {
 
       const response = credential.response as AuthenticatorAttestationResponse;
 
-      await fetch(`${API_BASE_URL}/api/auth/passkey/setup`, {
+      const setupRes = await fetch(`${API_BASE_URL}/api/auth/passkey/setup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -226,10 +233,15 @@ export default function PasskeySetupPage() {
                 new Uint8Array(response.attestationObject)
               ),
             },
-            challenge: data.challenge,
+            challenge,
           },
         }),
       });
+
+      const setupData = await setupRes.json();
+      if (!setupRes.ok || !setupData.success) {
+        throw new Error(setupData.error || "Failed to setup passkey");
+      }
 
       setStep("success");
       setTimeout(() => router.push("/dashboard"), 3000);
@@ -239,4 +251,111 @@ export default function PasskeySetupPage() {
     }
   };
 
+  /* =======================
+     RENDER
+  ======================= */
 
+  if (step === "check" && loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Checking your account…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#F6EDFF] to-white dark:from-[#1a1a1a] dark:to-[#252525]">
+      <div className="max-w-md mx-auto px-6 py-12 flex flex-col justify-center min-h-screen">
+
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <Link href="/dashboard" className="p-2 rounded-full">
+            <ChevronLeftIcon className="w-6 h-6" />
+          </Link>
+          <h1 className="text-2xl font-bold">Security Setup</h1>
+        </div>
+
+        {/* HAS PASSKEY */}
+        {step === "has_passkey" && (
+          <div className="space-y-6">
+            <div className="bg-green-50 p-6 rounded-xl">
+              <p className="font-bold">Passkey Already Active</p>
+            </div>
+
+            <button
+              onClick={handleRemovePasskey}
+              className="w-full py-4 bg-red-500 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+            >
+              <TrashIcon className="w-5 h-5" />
+              Remove Current Passkey
+            </button>
+
+            <Link href="/dashboard" className="block text-center text-sm">
+              Back to Dashboard
+            </Link>
+          </div>
+        )}
+
+        {/* SETUP */}
+        {step === "setup" && (
+          <div className="space-y-6">
+            <div className="bg-purple-50 p-6 rounded-xl">
+              <p className="font-bold">
+                Welcome, {userData?.name ?? "User"}!
+              </p>
+            </div>
+
+            <button
+              onClick={handleSetupPasskey}
+              className="w-full py-4 bg-[#D364DB] text-white rounded-xl font-bold flex items-center justify-center gap-2"
+            >
+              <FingerPrintIcon className="w-5 h-5" />
+              Set Up Passkey
+            </button>
+
+            <Link href="/dashboard" className="block text-center text-sm">
+              Back to Dashboard
+            </Link>
+          </div>
+        )}
+
+        {/* LOADING */}
+        {step === "loading" && (
+          <div className="text-center space-y-4">
+            <FingerPrintIcon className="w-12 h-12 mx-auto animate-pulse" />
+            <p>{statusMessage}</p>
+          </div>
+        )}
+
+        {/* SUCCESS */}
+        {step === "success" && (
+          <div className="text-center space-y-4">
+            <CheckCircleIcon className="w-16 h-16 mx-auto text-green-500" />
+            <p className="font-bold">Passkey setup complete!</p>
+          </div>
+        )}
+
+        {/* ERROR */}
+        {step === "error" && (
+          <div className="space-y-4">
+            <div className="bg-red-50 p-4 rounded-xl">
+              <p className="text-red-600">{error}</p>
+            </div>
+
+            <button
+              onClick={handleSetupPasskey}
+              className="w-full py-4 bg-[#D364DB] text-white rounded-xl font-bold flex items-center justify-center gap-2"
+            >
+              <ArrowPathIcon className="w-5 h-5" />
+              Try Again
+            </button>
+
+            <Link href="/dashboard" className="block text-center text-sm">
+              Back to Dashboard
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
