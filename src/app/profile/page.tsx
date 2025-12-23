@@ -75,7 +75,7 @@ export default function ProfilePage() {
           console.log('⚠️ User does not have passkey, redirecting to setup...');
           // Wait 1 second then redirect so user can see the loading state
           setTimeout(() => {
-            router.push('/dashboard/security/passkey-setup');
+            router.push('/dashboard/security');
           }, 1000);
           return;
         }
@@ -192,7 +192,7 @@ export default function ProfilePage() {
 
           {/* Setup Button */}
           <button
-            onClick={() => router.push('/dashboard/security/passkey-setup')}
+            onClick={() => router.push('/dashboard/security')}
             className="w-full py-4 bg-[#D364DB] hover:bg-[#C554CB] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
           >
             <FingerPrintIcon className="w-5 h-5" />
@@ -367,7 +367,7 @@ export default function ProfilePage() {
 
           {/* Security & Verification */}
           <button 
-            onClick={() => router.push("/dashboard/security/passkey-setup")}
+            onClick={() => router.push("/dashboard/security")}
             className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-[#252525] transition-colors border-b border-gray-200 dark:border-[#3d3d3d]"
           >
             <div className="flex items-center gap-3">

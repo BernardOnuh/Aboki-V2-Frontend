@@ -58,7 +58,7 @@ export default function Home() {
             if (!userHasPasskey) {
               console.log('⚠️ User does not have passkey, redirecting to setup...');
               setTimeout(() => {
-                router.push('/dashboard/security/passkey-setup');
+                router.push('/dashboard/security');
               }, 1500);
             }
           }
@@ -134,7 +134,7 @@ export default function Home() {
 
           {/* Setup Button */}
           <button
-            onClick={() => router.push('/dashboard/security/passkey-setup')}
+            onClick={() => router.push('/dashboard/security')}
             className="w-full py-4 bg-[#D364DB] hover:bg-[#C554CB] text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
           >
             <FingerPrintIcon className="w-5 h-5" />
@@ -267,7 +267,7 @@ export default function Home() {
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
-                        router.push("/dashboard/security/passkey-setup");
+                        router.push("/dashboard/security");
                       }}
                       className="w-full text-left px-3 py-2 rounded-lg hover:bg-purple-50 dark:hover:bg-[#252525] text-gray-900 dark:text-purple-100 text-sm transition-colors"
                     >
