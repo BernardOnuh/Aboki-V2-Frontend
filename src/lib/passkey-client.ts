@@ -1,4 +1,4 @@
-// ============= lib/passkey-client.ts (WITH BACKEND INTEGRATION) =============
+// ============= lib/passkey-client.ts (FIXED) =============
 /**
  * Passkey/WebAuthn Client for Transaction Verification
  * Handles secure biometric authentication for USDC transfers
@@ -139,6 +139,8 @@ class PasskeyClient {
         };
       }
 
+      console.log('📱 Requesting verification options...');
+
       const optionsResponse = await fetch(
         `${this.baseUrl}/api/auth/passkey/transaction-verify-options`,
         {
@@ -148,7 +150,7 @@ class PasskeyClient {
             Authorization: `Bearer ${authToken}`
           },
           body: JSON.stringify({
-            transactionType: data.type,  // ✅ FIXED: Maps "type" to "transactionType"
+            transactionType: data.type, // ✅ Maps "type" to "transactionType"
             amount: data.amount,
             recipient: data.recipient,
             message: data.message
@@ -159,6 +161,7 @@ class PasskeyClient {
       const optionsJson = await optionsResponse.json();
 
       if (!optionsResponse.ok || !optionsJson.success) {
+        console.error('❌ Options response error:', optionsJson);
         return {
           verified: false,
           error:
@@ -167,10 +170,14 @@ class PasskeyClient {
         };
       }
 
-      const { options, transactionId } = optionsJson.data;
+      const { options, transactionId, rpId, origin } = optionsJson.data;
+
+      console.log('✅ Options received:', { transactionId, rpId });
 
       // ============= STEP 3: Biometric assertion =============
       const publicKey = this.normalizeRequestOptions(options);
+
+      console.log('👆 Requesting biometric authentication...');
 
       // IMPORTANT: Must be called from a user gesture (click/tap)
       const assertion = (await navigator.credentials.get({
@@ -184,9 +191,36 @@ class PasskeyClient {
         };
       }
 
+      console.log('✅ Biometric authentication successful');
+
       const response = assertion.response as AuthenticatorAssertionResponse;
 
       // ============= STEP 4: Send assertion to backend =============
+      console.log('🔐 Sending assertion to backend for verification...');
+
+      // ✅ FIXED: Use correct payload structure matching backend expectations
+      const verifyPayload = {
+        transactionId, // ✅ Include transactionId
+        authenticationResponse: {
+          id: assertion.id,
+          rawId: Array.from(new Uint8Array(assertion.rawId)),
+          response: {
+            clientDataJSON: Array.from(
+              new Uint8Array(response.clientDataJSON)
+            ),
+            authenticatorData: Array.from(
+              new Uint8Array(response.authenticatorData)
+            ),
+            signature: Array.from(new Uint8Array(response.signature)),
+            userHandle: response.userHandle
+              ? Array.from(new Uint8Array(response.userHandle))
+              : null
+          },
+          type: assertion.type,
+          transactionId
+        }
+      };
+
       const verifyResponse = await fetch(
         `${this.baseUrl}/api/auth/passkey/transaction-verify`,
         {
@@ -195,28 +229,14 @@ class PasskeyClient {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${authToken}`
           },
-          body: JSON.stringify({
-            transactionId,
-            clientAssertion: {
-              id: Array.from(new Uint8Array(assertion.rawId)),
-              clientDataJSON: Array.from(
-                new Uint8Array(response.clientDataJSON)
-              ),
-              authenticatorData: Array.from(
-                new Uint8Array(response.authenticatorData)
-              ),
-              signature: Array.from(new Uint8Array(response.signature)),
-              userHandle: response.userHandle
-                ? Array.from(new Uint8Array(response.userHandle))
-                : null
-            }
-          })
+          body: JSON.stringify(verifyPayload)
         }
       );
 
       const verifyJson = await verifyResponse.json();
 
       if (!verifyResponse.ok || !verifyJson.success) {
+        console.error('❌ Verification failed:', verifyJson);
         return {
           verified: false,
           error: verifyJson?.error ?? 'Transaction verification failed'
@@ -224,6 +244,8 @@ class PasskeyClient {
       }
 
       // ============= STEP 5: Store verification token =============
+      console.log('✅ Verification successful, storing token...');
+
       const token = verifyJson.data.verificationToken;
       this.storeVerificationToken(token);
 
@@ -261,29 +283,29 @@ class PasskeyClient {
   }
 
   /**
-   * Token helpers
+   * Token storage - In-memory only (no sessionStorage due to framework limitations)
    */
   getVerificationToken(): string | null {
-    if (!this.verificationToken && typeof window !== 'undefined') {
-      this.verificationToken = sessionStorage.getItem(
-        'passkey_verification_token'
-      );
-    }
     return this.verificationToken;
   }
 
   private storeVerificationToken(token: string): void {
+    console.log('🔑 Storing verification token in memory');
     this.verificationToken = token;
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('passkey_verification_token', token);
-    }
+  }
+
+  setVerificationToken(token: string): void {
+    console.log('🔑 Setting verification token');
+    this.verificationToken = token;
   }
 
   clearVerificationToken(): void {
+    console.log('🔑 Clearing verification token');
     this.verificationToken = null;
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('passkey_verification_token');
-    }
+  }
+
+  hasValidVerificationToken(): boolean {
+    return !!this.verificationToken;
   }
 
   /**

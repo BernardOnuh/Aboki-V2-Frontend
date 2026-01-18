@@ -1,4 +1,4 @@
-// ============= src/components/ReviewPaymentContent.tsx (UPDATED) =============
+// ============= src/components/ReviewPaymentContent.tsx (COMPLETE FIXED) =============
 "use client"
 
 import { useState, Suspense } from "react";
@@ -41,16 +41,13 @@ function ReviewPaymentContent() {
     backLink = `/send/amount?username=${encodeURIComponent(username)}&avatar=${avatar}&source=crypto&fullAddress=${encodeURIComponent(fullAddress)}`;
   }
 
-  /**
-   * STEP 1: Handle Passkey Verification
-   * Gets challenge from backend, user completes biometric auth, sends assertion back
-   */
+  // ============= PASSKEY VERIFICATION FUNCTION =============
+
   const handlePasskeyVerification = async (): Promise<boolean> => {
     setIsVerifying(true);
     setError(null);
 
     try {
-      // Check if passkey is supported
       if (!passkeyClient.isSupported()) {
         setError("Passkey authentication is not supported in this browser. Please use a modern browser with biometric support.");
         setIsVerifying(false);
@@ -59,93 +56,205 @@ function ReviewPaymentContent() {
 
       console.log("🔐 Starting passkey verification...");
 
-      // ============= PREPARE TRANSACTION DATA =============
-      const transactionData = {
-        type: (source === "crypto" ? "withdraw" : "send") as "send" | "withdraw",
+      // ============= STEP 1: Get Transaction Verification Options =============
+      const transactionType = source === "crypto" ? "withdraw" : "send";
+      
+      console.log('📱 Requesting verification options:', {
+        transactionType,
         amount: parseFloat(amount),
-        recipient: source === "crypto" ? fullAddress! : username.replace('@', ''),
-        message: note || undefined
-      };
+        recipient: source === "crypto" ? fullAddress : username.replace('@', '')
+      });
 
-      console.log('📱 Transaction details for verification:', transactionData);
+      const optionsResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://apis.aboki.xyz'}/api/auth/passkey/transaction-verify-options`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiClient.getToken()}`
+          },
+          body: JSON.stringify({
+            transactionType, // ✅ FIXED: Use correct field name
+            amount: parseFloat(amount),
+            recipient: source === "crypto" ? fullAddress : username.replace('@', ''),
+            message: note || undefined
+          })
+        }
+      );
 
-      // ============= TRIGGER PASSKEY VERIFICATION =============
-      const result = await passkeyClient.verifyTransaction(transactionData);
-
-      if (!result.verified) {
-        setError(result.error || "Passkey verification failed");
+      if (!optionsResponse.ok) {
+        const errorData = await optionsResponse.json();
+        console.error('❌ Options request failed:', errorData);
+        setError(errorData.error || "Failed to get verification options");
         setIsVerifying(false);
         return false;
       }
 
-      // ============= STORE VERIFICATION TOKEN =============
-      if (result.token) {
-        // Store token in both passkey client and API client
-        passkeyClient.getVerificationToken(); // Ensures it's stored
-        apiClient.setPasskeyVerificationToken(result.token);
-        setVerificationToken(result.token);
-        
-        console.log("✅ Passkey verification token stored");
+      const optionsData = await optionsResponse.json();
+      console.log('✅ Verification options received:', {
+        transactionId: optionsData.data.transactionId,
+        rpId: optionsData.data.rpId
+      });
+
+      // ============= STEP 2: Perform Biometric Authentication =============
+      const challengeBuffer = new Uint8Array(
+        atob(optionsData.data.options.challenge)
+          .split("")
+          .map(c => c.charCodeAt(0))
+      );
+
+      console.log('👆 Requesting biometric authentication...');
+
+      let credential: PublicKeyCredential | null = null;
+      
+      try {
+        credential = await navigator.credentials.get({
+          publicKey: {
+            ...optionsData.data.options,
+            challenge: challengeBuffer as BufferSource
+          }
+        }) as PublicKeyCredential;
+      } catch (credError: any) {
+        console.error('❌ Biometric auth error:', credError);
+        if (credError.name === 'NotAllowedError') {
+          setError("Biometric verification was cancelled or failed");
+        } else {
+          setError(`Biometric authentication failed: ${credError.message}`);
+        }
+        setIsVerifying(false);
+        return false;
       }
 
-      console.log("✅ Passkey verification successful");
+      if (!credential) {
+        setError("Passkey verification was cancelled");
+        setIsVerifying(false);
+        return false;
+      }
+
+      console.log('✅ Biometric authentication successful');
+
+      // ============= STEP 3: Send Assertion to Backend for Verification =============
+      const response = credential.response as AuthenticatorAssertionResponse;
+
+      // ✅ FIXED: Send the correct payload structure
+      const verifyPayload = {
+        transactionId: optionsData.data.transactionId, // ✅ Include transactionId
+        authenticationResponse: {
+          id: credential.id,
+          rawId: Array.from(new Uint8Array(credential.rawId)),
+          response: {
+            clientDataJSON: Array.from(new Uint8Array(response.clientDataJSON)),
+            authenticatorData: Array.from(new Uint8Array(response.authenticatorData)),
+            signature: Array.from(new Uint8Array(response.signature)),
+            userHandle: response.userHandle 
+              ? Array.from(new Uint8Array(response.userHandle))
+              : null
+          },
+          type: credential.type,
+          transactionId: optionsData.data.transactionId
+        }
+      };
+
+      console.log('🔐 Verifying passkey signature with backend...');
+
+      const verifyResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://apis.aboki.xyz'}/api/auth/passkey/transaction-verify`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiClient.getToken()}`
+          },
+          body: JSON.stringify(verifyPayload)
+        }
+      );
+
+      if (!verifyResponse.ok) {
+        const errorData = await verifyResponse.json();
+        console.error('❌ Verification failed:', errorData);
+        setError(errorData.error || "Passkey verification failed");
+        setIsVerifying(false);
+        return false;
+      }
+
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyData.data?.verificationToken) {
+        console.error('❌ No verification token in response');
+        setError("No verification token received");
+        setIsVerifying(false);
+        return false;
+      }
+
+      // ============= STEP 4: Store Verification Token =============
+      console.log('✅ Verification token received');
+      
+      // Store in API client (primary storage)
+      apiClient.setPasskeyVerificationToken(verifyData.data.verificationToken);
+      setVerificationToken(verifyData.data.verificationToken);
+
+      console.log('✅ Passkey verification successful');
+      console.log('   Token stored and ready for transaction');
+      
       setPasskeyVerified(true);
       setIsVerifying(false);
       return true;
 
     } catch (err: any) {
       console.error("❌ Passkey verification error:", err);
+      console.error("Stack:", err.stack);
       setError(err.message || "Passkey verification failed");
       setIsVerifying(false);
       return false;
     }
   };
 
-  /**
-   * STEP 2: Handle Transaction
-   * First verify with passkey, then send transaction with verification token
-   */
+  // ============= SEND TRANSACTION FUNCTION =============
+
   const handleSend = async () => {
-    // ============= STEP 1: Verify with passkey if not already verified =============
+    // ============= VERIFY WITH PASSKEY FIRST =============
     if (!passkeyVerified) {
-      console.log('🔐 Passkey not verified - requesting verification first...');
+      console.log('🔐 Passkey not verified - requesting verification...');
       const verified = await handlePasskeyVerification();
       if (!verified) {
-        console.error('❌ Passkey verification failed - aborting transaction');
+        console.error('❌ Passkey verification failed');
         return;
       }
     }
 
-    // ============= STEP 2: Process the transaction =============
+    // ============= SEND TRANSACTION =============
     setIsProcessing(true);
     setError(null);
 
     try {
-      // Check if user is authenticated
       const token = apiClient.getToken();
       if (!token) {
         setError("Please log in to send payments");
         setIsProcessing(false);
-        router.push(`/auth?redirect=${encodeURIComponent(`/send/review?username=${username}&amount=${amount}&note=${encodeURIComponent(note)}&source=${source}`)}`);
+        router.push(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
 
-      // Get verification token
+      // Verify token is still valid
       const passKeyToken = passkeyClient.getVerificationToken();
       if (!passKeyToken) {
-        setError("Passkey verification token not found. Please verify again.");
+        console.warn('⚠️ Verification token missing - requesting re-verification');
+        setPasskeyVerified(false);
+        setError("Verification expired. Please verify again.");
+        
+        // Clear state and retry verification
         setIsProcessing(false);
-        return;
+        const verified = await handlePasskeyVerification();
+        if (!verified) return;
+        setIsProcessing(true);
       }
 
       console.log('📡 Sending transaction with passkey verification...');
-      console.log('   Token present:', !!passKeyToken);
-      console.log('   Source:', source);
 
       let response;
 
       if (source === "crypto") {
-        // ============= EXTERNAL WALLET - Send to any Base address =============
+        // ============= EXTERNAL WALLET =============
         if (!fullAddress) {
           setError("Invalid wallet address");
           setIsProcessing(false);
@@ -154,7 +263,8 @@ function ReviewPaymentContent() {
 
         console.log("🔷 Sending to external wallet:", {
           address: fullAddress.slice(0, 10) + '...',
-          amount: parseFloat(amount)
+          amount: parseFloat(amount),
+          hasVerificationToken: !!passKeyToken
         });
 
         response = await apiClient.sendToExternal({
@@ -163,15 +273,14 @@ function ReviewPaymentContent() {
           message: note || undefined
         });
 
-        console.log("✅ External wallet response:", response);
-
       } else {
-        // ============= USERNAME - Send to another Aboki user =============
+        // ============= USERNAME =============
         const cleanUsername = username.replace('@', '');
         
         console.log("👤 Sending to username:", {
           username: cleanUsername,
-          amount: parseFloat(amount)
+          amount: parseFloat(amount),
+          hasVerificationToken: !!passKeyToken
         });
 
         response = await apiClient.sendToUsername({
@@ -179,56 +288,47 @@ function ReviewPaymentContent() {
           amount: parseFloat(amount),
           message: note || undefined
         });
-
-        console.log("✅ Username response:", response);
       }
 
       // ============= HANDLE RESPONSE =============
       if (response.success && response.data) {
+        console.log('✅ Transaction successful!');
         setSuccess(true);
         setTxHash(response.data.transactionHash);
         setExplorerUrl(response.data.explorerUrl || null);
-        
-        console.log('✅ Transaction successful!');
-        console.log('   TxHash:', response.data.transactionHash);
-        console.log('   To:', username);
 
-        // Clear tokens after successful transaction
+        // Clear tokens after success
         passkeyClient.clearVerificationToken();
         apiClient.clearPasskeyVerificationToken();
 
-        // Show success for 2 seconds then redirect
         setTimeout(() => {
           router.push(`/send/success?txHash=${response.data!.transactionHash}&amount=${amount}&to=${username}`);
         }, 2000);
       } else {
-        // Handle specific errors
-        if (response.error?.includes('verification required') || 
-            response.error?.includes('PASSKEY_VERIFICATION_REQUIRED')) {
-          console.error('❌ Verification expired');
+        console.error('❌ Transaction failed:', response.error);
+        
+        if (response.error?.includes('verification') || response.error?.includes('PASSKEY')) {
           setPasskeyVerified(false);
           setError("Transaction verification expired. Please verify again.");
         } else {
-          console.error('❌ Transaction failed:', response.error);
           setError(response.error || "Transaction failed");
         }
 
         // Clear tokens on error
-        passkeyClient.clearVerificationToken();
         apiClient.clearPasskeyVerificationToken();
       }
     } catch (err: any) {
       console.error("❌ Send error:", err);
       setError(err.message || "An unexpected error occurred");
       
-      // Clear verification tokens on error
       apiClient.clearPasskeyVerificationToken();
-      passkeyClient.clearVerificationToken();
       setPasskeyVerified(false);
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // ============= JSX RENDER =============
 
   return (
     <div className="w-full max-w-[1080px] mx-auto h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 flex flex-col">
