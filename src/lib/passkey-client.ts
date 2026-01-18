@@ -75,7 +75,9 @@ class PasskeyClient {
     options: PublicKeyCredentialRequestOptions
   ): PublicKeyCredentialRequestOptions {
     const normalized: PublicKeyCredentialRequestOptions = {
-      ...options,
+      challenge: options.challenge, // ✅ Keep as-is (already BufferSource)
+      rpId: options.rpId,
+      userVerification: options.userVerification ?? 'preferred',
 
       // Safari/iOS prefers shorter timeouts
       timeout: options.timeout ?? (this.isSafari() ? 60000 : 120000),
@@ -84,10 +86,7 @@ class PasskeyClient {
       allowCredentials:
         options.allowCredentials && options.allowCredentials.length > 0
           ? options.allowCredentials
-          : undefined,
-
-      // Explicitly disable unsupported features
-      extensions: options.extensions ?? {}
+          : undefined
     };
 
     return normalized;
@@ -175,14 +174,36 @@ class PasskeyClient {
       console.log('✅ Options received:', { transactionId, rpId });
 
       // ============= STEP 3: Biometric assertion =============
-      const publicKey = this.normalizeRequestOptions(options);
+      // ✅ FIXED: Properly convert challenge from base64url to ArrayBuffer
+      const challengeBuffer = new Uint8Array(
+        atob(options.challenge)
+          .split("")
+          .map(c => c.charCodeAt(0))
+      );
 
-      console.log('👆 Requesting biometric authentication...');
+      const publicKey = this.normalizeRequestOptions({
+        ...options,
+        challenge: challengeBuffer as BufferSource
+      });
+
+      console.log('👆 Requesting biometric authentication...', {
+        challengeLength: challengeBuffer.length,
+        rpId: publicKey.rpId
+      });
 
       // IMPORTANT: Must be called from a user gesture (click/tap)
-      const assertion = (await navigator.credentials.get({
-        publicKey
-      })) as PublicKeyCredential | null;
+      let assertion: PublicKeyCredential | null = null;
+      try {
+        assertion = (await navigator.credentials.get({
+          publicKey
+        })) as PublicKeyCredential | null;
+      } catch (credError: any) {
+        console.error('❌ Credentials.get() error:', {
+          name: credError.name,
+          message: credError.message
+        });
+        throw credError;
+      }
 
       if (!assertion) {
         return {
