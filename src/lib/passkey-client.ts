@@ -1,4 +1,4 @@
-// ============= lib/passkey-client.ts (FIXED) =============
+// ============= lib/passkey-client.ts (COMPLETE FIXED) =============
 /**
  * Passkey/WebAuthn Client for Transaction Verification
  * Handles secure biometric authentication for USDC transfers
@@ -69,22 +69,53 @@ class PasskeyClient {
   }
 
   /**
+   * Helper: Convert base64url string to ArrayBuffer
+   */
+  private base64UrlToArrayBuffer(base64url: string): ArrayBuffer {
+    // Convert base64url to base64
+    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+    const paddedBase64 = base64 + padding;
+    
+    // Decode to binary string
+    const binaryString = atob(paddedBase64);
+    
+    // Convert to ArrayBuffer
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    return bytes.buffer;
+  }
+
+  /**
    * Normalize PublicKeyCredentialRequestOptions for Safari/iOS
    */
   private normalizeRequestOptions(
     options: PublicKeyCredentialRequestOptions
   ): PublicKeyCredentialRequestOptions {
-    // ✅ FIXED: Build proper allowCredentials array
+    // ✅ FIXED: Build proper allowCredentials array with ArrayBuffer conversion
     let allowCredentials: PublicKeyCredentialDescriptor[] | undefined;
 
     if (options.allowCredentials && Array.isArray(options.allowCredentials) && options.allowCredentials.length > 0) {
-      allowCredentials = options.allowCredentials.map(cred => ({
-        type: cred.type as "public-key",
-        id: typeof cred.id === 'string' 
-          ? new Uint8Array(atob(cred.id).split('').map(c => c.charCodeAt(0)))
-          : cred.id,
-        transports: cred.transports
-      }));
+      allowCredentials = options.allowCredentials.map(cred => {
+        let idBuffer: ArrayBuffer;
+        
+        if (typeof cred.id === 'string') {
+          // ✅ FIXED: Properly convert base64url string to ArrayBuffer
+          idBuffer = this.base64UrlToArrayBuffer(cred.id);
+        } else {
+          // Already an ArrayBuffer
+          idBuffer = cred.id as ArrayBuffer;
+        }
+
+        return {
+          type: "public-key" as const,
+          id: idBuffer,
+          transports: cred.transports as AuthenticatorTransport[] | undefined
+        };
+      });
     }
 
     const normalized: PublicKeyCredentialRequestOptions = {
@@ -181,11 +212,7 @@ class PasskeyClient {
 
       // ============= STEP 3: Biometric assertion =============
       // ✅ FIXED: Properly convert challenge from base64url to ArrayBuffer
-      const challengeBuffer = new Uint8Array(
-        atob(options.challenge)
-          .split("")
-          .map(c => c.charCodeAt(0))
-      );
+      const challengeBuffer = this.base64UrlToArrayBuffer(options.challenge);
 
       const publicKey = this.normalizeRequestOptions({
         ...options,
@@ -193,8 +220,9 @@ class PasskeyClient {
       });
 
       console.log('👆 Requesting biometric authentication...', {
-        challengeLength: challengeBuffer.length,
-        rpId: publicKey.rpId
+        challengeLength: challengeBuffer.byteLength,
+        rpId: publicKey.rpId,
+        hasAllowCredentials: !!publicKey.allowCredentials?.length
       });
 
       // IMPORTANT: Must be called from a user gesture (click/tap)

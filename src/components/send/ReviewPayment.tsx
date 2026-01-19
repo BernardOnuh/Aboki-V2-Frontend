@@ -41,6 +41,21 @@ function ReviewPaymentContent() {
     backLink = `/send/amount?username=${encodeURIComponent(username)}&avatar=${avatar}&source=crypto&fullAddress=${encodeURIComponent(fullAddress)}`;
   }
 
+  // ============= HELPER: Convert base64url to ArrayBuffer =============
+  const base64UrlToArrayBuffer = (base64url: string): ArrayBuffer => {
+    const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+    const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+    const paddedBase64 = base64 + padding;
+    
+    const binaryString = atob(paddedBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    return bytes.buffer;
+  };
+
   // ============= PASSKEY VERIFICATION FUNCTION =============
 
   const handlePasskeyVerification = async (): Promise<boolean> => {
@@ -74,7 +89,7 @@ function ReviewPaymentContent() {
             "Authorization": `Bearer ${apiClient.getToken()}`
           },
           body: JSON.stringify({
-            transactionType, // ✅ FIXED: Use correct field name
+            transactionType,
             amount: parseFloat(amount),
             recipient: source === "crypto" ? fullAddress : username.replace('@', ''),
             message: note || undefined
@@ -97,13 +112,19 @@ function ReviewPaymentContent() {
       });
 
       // ============= STEP 2: Perform Biometric Authentication =============
-      const challengeBuffer = new Uint8Array(
-        atob(optionsData.data.options.challenge)
-          .split("")
-          .map(c => c.charCodeAt(0))
-      );
+      // ✅ FIXED: Convert challenge from base64url to ArrayBuffer
+      const challengeBuffer = base64UrlToArrayBuffer(optionsData.data.options.challenge);
 
-      console.log('👆 Requesting biometric authentication...');
+      // ✅ FIXED: Convert allowCredentials IDs from base64url to ArrayBuffer
+      const allowCredentials = optionsData.data.options.allowCredentials?.map((cred: any) => ({
+        ...cred,
+        id: base64UrlToArrayBuffer(cred.id)
+      }));
+
+      console.log('👆 Requesting biometric authentication...', {
+        challengeLength: challengeBuffer.byteLength,
+        credentialsCount: allowCredentials?.length || 0
+      });
 
       let credential: PublicKeyCredential | null = null;
       
@@ -111,7 +132,8 @@ function ReviewPaymentContent() {
         credential = await navigator.credentials.get({
           publicKey: {
             ...optionsData.data.options,
-            challenge: challengeBuffer as BufferSource
+            challenge: challengeBuffer as BufferSource,
+            allowCredentials: allowCredentials
           }
         }) as PublicKeyCredential;
       } catch (credError: any) {
@@ -136,9 +158,8 @@ function ReviewPaymentContent() {
       // ============= STEP 3: Send Assertion to Backend for Verification =============
       const response = credential.response as AuthenticatorAssertionResponse;
 
-      // ✅ FIXED: Send the correct payload structure
       const verifyPayload = {
-        transactionId: optionsData.data.transactionId, // ✅ Include transactionId
+        transactionId: optionsData.data.transactionId,
         authenticationResponse: {
           id: credential.id,
           rawId: Array.from(new Uint8Array(credential.rawId)),
@@ -189,12 +210,10 @@ function ReviewPaymentContent() {
       // ============= STEP 4: Store Verification Token =============
       console.log('✅ Verification token received');
       
-      // Store in API client (primary storage)
       apiClient.setPasskeyVerificationToken(verifyData.data.verificationToken);
       setVerificationToken(verifyData.data.verificationToken);
 
       console.log('✅ Passkey verification successful');
-      console.log('   Token stored and ready for transaction');
       
       setPasskeyVerified(true);
       setIsVerifying(false);
@@ -235,14 +254,12 @@ function ReviewPaymentContent() {
         return;
       }
 
-      // Verify token is still valid
       const passKeyToken = passkeyClient.getVerificationToken();
       if (!passKeyToken) {
         console.warn('⚠️ Verification token missing - requesting re-verification');
         setPasskeyVerified(false);
         setError("Verification expired. Please verify again.");
         
-        // Clear state and retry verification
         setIsProcessing(false);
         const verified = await handlePasskeyVerification();
         if (!verified) return;
@@ -297,7 +314,6 @@ function ReviewPaymentContent() {
         setTxHash(response.data.transactionHash);
         setExplorerUrl(response.data.explorerUrl || null);
 
-        // Clear tokens after success
         passkeyClient.clearVerificationToken();
         apiClient.clearPasskeyVerificationToken();
 
@@ -314,7 +330,6 @@ function ReviewPaymentContent() {
           setError(response.error || "Transaction failed");
         }
 
-        // Clear tokens on error
         apiClient.clearPasskeyVerificationToken();
       }
     } catch (err: any) {
