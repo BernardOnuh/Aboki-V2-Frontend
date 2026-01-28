@@ -1,4 +1,4 @@
-// ============= src/components/ReviewPaymentContent.tsx (PIN VERIFICATION VERSION) =============
+// ============= src/components/ReviewPaymentContent.tsx (WITH PIN MODAL) =============
 "use client"
 
 import { useState, Suspense } from "react";
@@ -13,6 +13,7 @@ import {
   ShieldCheckIcon
 } from "@heroicons/react/24/outline";
 import apiClient from "@/lib/api-client";
+import PinVerificationModal from "./PinVerificationModal";
 
 function ReviewPaymentContent() {
   const searchParams = useSearchParams();
@@ -34,9 +35,9 @@ function ReviewPaymentContent() {
   const [pinVerified, setPinVerified] = useState(false);
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   
-  // PIN input state
-  const [pinInput, setPinInput] = useState("");
-  const [showPin, setShowPin] = useState(false);
+  // PIN modal state
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
   const [pinAttempts, setPinAttempts] = useState(0);
 
   // Determine back link based on source
@@ -48,11 +49,11 @@ function ReviewPaymentContent() {
   // ============= PIN VERIFICATION FUNCTION =============
   const handlePinVerification = async (pin: string): Promise<boolean> => {
     setIsVerifying(true);
-    setError(null);
+    setPinError(null);
 
     try {
       if (!pin || pin.length < 4) {
-        setError("PIN must be at least 4 digits");
+        setPinError("PIN must be at least 4 digits");
         setIsVerifying(false);
         return false;
       }
@@ -88,7 +89,7 @@ function ReviewPaymentContent() {
       if (!optionsResponse.ok) {
         const errorData = await optionsResponse.json();
         console.error('❌ Options request failed:', errorData);
-        setError(errorData.error || "Failed to get verification options");
+        setPinError(errorData.error || "Failed to get verification options");
         setIsVerifying(false);
         return false;
       }
@@ -125,9 +126,9 @@ function ReviewPaymentContent() {
         setPinAttempts(newAttempts);
 
         if (newAttempts >= 3) {
-          setError("Too many incorrect PIN attempts. Please try again later.");
+          setPinError("Too many incorrect PIN attempts. Please try again later.");
         } else {
-          setError(`Incorrect PIN. ${3 - newAttempts} attempts remaining.`);
+          setPinError(`Incorrect PIN. ${3 - newAttempts} attempt${3 - newAttempts > 1 ? 's' : ''} remaining.`);
         }
         
         setIsVerifying(false);
@@ -138,7 +139,7 @@ function ReviewPaymentContent() {
 
       if (!verifyData.data?.verificationToken) {
         console.error('❌ No verification token in response');
-        setError("No verification token received");
+        setPinError("No verification token received");
         setIsVerifying(false);
         return false;
       }
@@ -150,31 +151,27 @@ function ReviewPaymentContent() {
       setVerificationToken(verifyData.data.verificationToken);
 
       setPinVerified(true);
-      setPinInput("");
+      setShowPinModal(false);
+      setPinError(null);
       setIsVerifying(false);
+      
+      // Auto-proceed to send transaction
+      setTimeout(() => {
+        handleSendTransaction();
+      }, 500);
+      
       return true;
 
     } catch (err: any) {
       console.error("❌ PIN verification error:", err);
-      setError(err.message || "PIN verification failed");
+      setPinError(err.message || "PIN verification failed");
       setIsVerifying(false);
       return false;
     }
   };
 
   // ============= SEND TRANSACTION FUNCTION =============
-  const handleSend = async () => {
-    // ============= VERIFY WITH PIN FIRST =============
-    if (!pinVerified) {
-      console.log('🔐 PIN not verified - requesting verification...');
-      const verified = await handlePinVerification(pinInput);
-      if (!verified) {
-        console.error('❌ PIN verification failed');
-        return;
-      }
-    }
-
-    // ============= SEND TRANSACTION =============
+  const handleSendTransaction = async () => {
     setIsProcessing(true);
     setError(null);
 
@@ -191,12 +188,9 @@ function ReviewPaymentContent() {
       if (!pinToken) {
         console.warn('⚠️ Verification token missing - requesting re-verification');
         setPinVerified(false);
-        setError("Verification expired. Please verify again.");
-        
+        setShowPinModal(true);
         setIsProcessing(false);
-        const verified = await handlePinVerification(pinInput);
-        if (!verified) return;
-        setIsProcessing(true);
+        return;
       }
 
       console.log('📡 Sending transaction with PIN verification...');
@@ -258,6 +252,7 @@ function ReviewPaymentContent() {
         if (response.error?.includes('verification') || response.error?.includes('PIN')) {
           setPinVerified(false);
           setError("Transaction verification expired. Please verify again.");
+          setShowPinModal(true);
         } else {
           setError(response.error || "Transaction failed");
         }
@@ -275,10 +270,31 @@ function ReviewPaymentContent() {
     }
   };
 
+  // ============= INITIATE PAYMENT (SHOWS PIN MODAL) =============
+  const handleInitiatePayment = () => {
+    if (!pinVerified) {
+      setShowPinModal(true);
+    } else {
+      handleSendTransaction();
+    }
+  };
+
   // ============= JSX RENDER =============
   return (
     <div className="w-full max-w-[1080px] mx-auto h-screen bg-[#F6EDFF]/50 dark:bg-[#252525] transition-colors duration-300 flex flex-col">
       
+      {/* PIN Verification Modal */}
+      <PinVerificationModal
+        isOpen={showPinModal}
+        onClose={() => setShowPinModal(false)}
+        onVerify={handlePinVerification}
+        isVerifying={isVerifying}
+        error={pinError}
+        attempts={pinAttempts}
+        amount={amount}
+        recipient={source === "crypto" && fullAddress ? `${fullAddress.slice(0, 6)}...${fullAddress.slice(-4)}` : username}
+      />
+
       {/* Header - Fixed at top */}
       <header className="flex-shrink-0 px-6 py-4 flex items-center gap-4 border-b border-slate-200 dark:border-slate-700">
         <Link href={backLink} className="p-2 -ml-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
@@ -299,7 +315,7 @@ function ReviewPaymentContent() {
               <ExclamationCircleIcon className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="font-bold text-red-900 dark:text-red-200 text-sm mb-1">
-                  {pinVerified ? "Transaction Failed" : "Verification Failed"}
+                  Transaction Failed
                 </p>
                 <p className="text-red-700 dark:text-red-300 text-sm">
                   {error}
@@ -325,7 +341,7 @@ function ReviewPaymentContent() {
 
           {/* PIN Verification Status */}
           {pinVerified && !success && (
-            <div className="w-full max-w-md mb-6 p-4 bg-green-100 dark:bg-green-900/30 border-2 border-green-500 rounded-2xl flex items-center gap-3">
+            <div className="w-full max-w-md mb-6 p-4 bg-green-100 dark:bg-green-900/30 border-2 border-green-500 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
               <ShieldCheckIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
               <div className="flex-1">
                 <p className="font-bold text-green-900 dark:text-green-200 text-sm">
@@ -417,37 +433,6 @@ function ReviewPaymentContent() {
             </div>
           </div>
 
-          {/* PIN Input Section (if not verified) */}
-          {!pinVerified && (
-            <div className="w-full max-w-md mb-6 bg-white dark:bg-[#3D3D3D] border-2 border-purple-200 dark:border-purple-800 rounded-3xl p-6">
-              <h3 className="font-bold text-slate-900 dark:text-white mb-4">Enter PIN to Verify</h3>
-              
-              <div className="relative mb-4">
-                <input
-                  type={showPin ? "text" : "password"}
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Enter your 4+ digit PIN"
-                  maxLength={10}
-                  disabled={isVerifying}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:border-purple-500 focus:outline-none text-center text-2xl tracking-widest font-bold disabled:opacity-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  disabled={isVerifying}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 disabled:opacity-50"
-                >
-                  {showPin ? "Hide" : "Show"}
-                </button>
-              </div>
-
-              <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
-                {pinAttempts > 0 && pinAttempts < 3 && `${3 - pinAttempts} attempt${3 - pinAttempts > 1 ? 's' : ''} remaining`}
-              </p>
-            </div>
-          )}
-
           {/* Transaction Hash (if processing or success) */}
           {(isProcessing || txHash) && (
             <div className="w-full max-w-md mb-4 p-4 bg-slate-100 dark:bg-slate-800 rounded-2xl">
@@ -475,16 +460,11 @@ function ReviewPaymentContent() {
           {/* Action Button */}
           <div className="w-full max-w-md mb-6">
             <button 
-              onClick={handleSend}
-              disabled={isProcessing || isVerifying || success || (!pinVerified && pinInput.length < 4)}
-              className="w-full py-4 rounded-2xl bg-[#D364DB] text-white font-bold text-lg shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.8)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] active:translate-y-0 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none flex items-center justify-center gap-2"
+              onClick={handleInitiatePayment}
+              disabled={isProcessing || success}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-lg shadow-[4px_4px_0px_0px_rgba(15,23,42,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.8)] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_rgba(15,23,42,1)] active:translate-y-0 active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none flex items-center justify-center gap-2"
             >
-              {isVerifying ? (
-                <>
-                  <LockClosedIcon className="w-5 h-5 animate-pulse" />
-                  Verifying PIN...
-                </>
-              ) : isProcessing ? (
+              {isProcessing ? (
                 <>
                   <ArrowPathIcon className="w-5 h-5 animate-spin" />
                   Sending...
@@ -497,7 +477,7 @@ function ReviewPaymentContent() {
               ) : pinVerified ? (
                 <>
                   <ShieldCheckIcon className="w-5 h-5" />
-                  Send Payment (FREE)
+                  Complete Payment (FREE)
                 </>
               ) : (
                 <>
@@ -510,7 +490,7 @@ function ReviewPaymentContent() {
             <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-4">
               {pinVerified 
                 ? "Your transaction is verified. Click to complete the transfer."
-                : "PIN verification is required for your security"
+                : "Click to verify with PIN and send payment securely"
               }
             </p>
           </div>
